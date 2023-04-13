@@ -1,0 +1,36 @@
+[package]
+name = "xmrsplayer"
+version = "0.1.0"
+edition = "2021"
+description = "XMrsPlayer is a rust port libxm player "
+license = "MIT"
+authors = ["Sebastien Bechet"]
+documentation = "https://docs.rs/xmrsplayer"
+repository = "https://github.com/sbechet/xmrsplayer"
+readme = "README.md"
+
+keywords = ["xm", "module", "mod", "s3m", "tracker"]
+categories = ["multimedia::audio"]
+
+
+[dependencies]
+clap = { version = "^4.2", features = ["cargo", "derive"] }
+bitflags = "2.0"
+lazy_static = "1.4"
+num_enum = "0.6"
+rodio = "0.17"
+xmrs = "0.3"
+
+[lib]
+name = "xmrsplayer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "player"
+path = "src/bin/player.rs"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+panic = "abort"
