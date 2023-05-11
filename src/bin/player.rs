@@ -7,7 +7,6 @@ use xmrs::xm::xmmodule::XmModule;
 
 use xmrsplayer::prelude::*;
 
-const CHANNELS: usize = 2;
 const SAMPLE_RATE: u32 = 48000;
 const BUFFER_LEN: usize = 48000;
 
@@ -82,7 +81,7 @@ fn rodio_play(module: &Module, amplification: f32, position: usize, loops: u8, d
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
     while loops == 0 || player.get_loop_count() < loops {
-        player.generate_samples(&mut buffer, BUFFER_LEN / CHANNELS);
+        player.generate_samples(&mut buffer);
         // println!("{:02?}", &buffer);
         let source = SamplesBuffer::new(2, SAMPLE_RATE, buffer);
         sink.append(source);

@@ -83,6 +83,10 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         self.loop_count
     }
 
+    pub fn get_sample_rate(&self) -> f32 {
+        self.sample_rate
+    }
+
     /// do a manual goto
     pub fn goto(&mut self, table_position: usize, row: usize) -> bool {
         if table_position < self.module.get_song_length() {
@@ -945,7 +949,8 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         Some((left, right))
     }
 
-    pub fn generate_samples(&mut self, output: &mut [f32], numsamples: usize) {
+    pub fn generate_samples(&mut self, output: &mut [f32]) {
+        let numsamples = output.len() / 2;
         self.generated_samples += numsamples as u64;
 
         for i in 0..numsamples {
