@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "XMrsPlayer is a portage of libxm in Rust language to play real music "
 license = "MIT"
@@ -16,8 +16,6 @@ categories = ["multimedia::audio"]
 [dependencies]
 clap = { version = "^4.2", features = ["cargo", "derive"] }
 bitflags = "2.0"
-lazy_static = "1.4"
-num_enum = "0.6"
 rodio = "0.17"
 xmrs = "0.3"
 console = "0.15.5"

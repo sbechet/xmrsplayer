@@ -4,10 +4,6 @@ use std::sync::Arc;
 use crate::helper::*;
 use xmrs::prelude::*;
 
-lazy_static! {
-    pub static ref EMPTY_SLOT: PatternSlot = PatternSlot::default();
-}
-
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct TriggerKeep: u8 {
