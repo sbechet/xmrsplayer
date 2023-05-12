@@ -86,9 +86,9 @@ pub struct Channel {
     // RAMPING START
     /* These values are updated at the end of each tick, to save
      * a couple of float operations on every generated sample. */
-    pub target_volume: [f32; 2],
-    pub frame_count: usize,
-    pub end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
+    // pub target_volume: [f32; 2],
+    // pub frame_count: usize,
+    // pub end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
     // RAMPING END
     pub freq_type: ModuleFlag,
     pub rate: f32,
@@ -561,8 +561,265 @@ impl Channel {
         }
     }
 
-    // XXX pub fn not needed with code refactoring
-    pub fn handle_note_and_instrument(&mut self) {
+    pub fn tick(&mut self, current_tick: u16, tempo: u16) -> f32 {
+        let mut delta_volume = 0.0;
+
+        self.envelopes();
+        self.autovibrato();
+
+        if self.arp_in_progress && !self.current.has_arpeggio() {
+            self.arp_in_progress = false;
+            self.arp_note_offset = 0;
+            self.update_frequency();
+        }
+        if self.vibrato_in_progress && !self.current.has_vibrato() {
+            self.vibrato_in_progress = false;
+            self.vibrato_note_offset = 0.0;
+            self.update_frequency();
+        }
+
+        if current_tick != 0 {
+            match self.current.volume >> 4 {
+                0x6 => {
+                    /* Volume slide down */
+                    self.volume_slide(self.current.volume & 0x0F);
+                }
+                0x7 => {
+                    /* Volume slide up */
+                    self.volume_slide(self.current.volume << 4);
+                }
+                0xB => {
+                    /* Vibrato */
+                    self.vibrato_in_progress = false;
+                    self.vibrato();
+                }
+                0xD => {
+                    /* Panning slide left */
+                    self.panning_slide(self.current.volume & 0x0F);
+                }
+                0xE => {
+                    /* Panning slide right */
+                    self.panning_slide(self.current.volume << 4);
+                }
+                0xF => {
+                    /* Tone portamento */
+                    self.tone_portamento();
+                }
+                _ => {}
+            }
+        }
+
+        match self.current.effect_type {
+            0 => {
+                /* 0xy: Arpeggio */
+                if self.current.effect_parameter > 0 {
+                    let arp_offset = tempo % 3;
+                    match current_tick {
+                        1 if arp_offset == 2 => {
+                            /* arp_offset==2: 0 -> x -> 0 -> y -> x -> … */
+                            self.arp_in_progress = true;
+                            self.arp_note_offset = self.current.effect_parameter >> 4;
+                            self.update_frequency();
+                            return delta_volume;
+                        }
+                        0 if arp_offset >= 1 => {
+                            /* arp_offset==1: 0 -> 0 -> y -> x -> … */
+                            self.arp_in_progress = false;
+                            self.arp_note_offset = 0;
+                            self.update_frequency();
+                            return delta_volume;
+                        }
+                        _ => {
+                            /* 0 -> y -> x -> … */
+                            self.arpeggio(self.current.effect_parameter, current_tick - arp_offset);
+                        }
+                    }
+                }
+            }
+            1 => {
+                /* 1xx: Portamento up */
+                if current_tick != 0 {
+                    let period_offset = -(self.portamento_up_param as i8);
+                    self.pitch_slide(period_offset);
+                }
+            }
+            2 => {
+                /* 2xx: Portamento down */
+                if current_tick != 0 {
+                    let period_offset = self.portamento_down_param as i8;
+                    self.pitch_slide(period_offset);
+                }
+            }
+            3 => {
+                /* 3xx: Tone portamento */
+                if current_tick != 0 {
+                    self.tone_portamento();
+                }
+            }
+            4 => {
+                /* 4xy: Vibrato */
+                if current_tick != 0 {
+                    self.vibrato_in_progress = true;
+                    self.vibrato();
+                }
+            }
+            5 => {
+                /* 5xy: Tone portamento + Volume slide */
+                if current_tick != 0 {
+                    self.tone_portamento();
+                    let rawval = self.volume_slide_param;
+                    self.volume_slide(rawval);
+                }
+            }
+            6 => {
+                /* 6xy: Vibrato + Volume slide */
+                if current_tick != 0 {
+                    self.vibrato_in_progress = true;
+                    self.vibrato();
+                    let rawval = self.volume_slide_param;
+                    self.volume_slide(rawval);
+                }
+            }
+            7 => {
+                /* 7xy: Tremolo */
+                if current_tick != 0 {
+                    self.tremolo();
+                }
+            }
+            0xA => {
+                /* Axy: Volume slide */
+                if current_tick != 0 {
+                    let rawval = self.volume_slide_param;
+                    self.volume_slide(rawval);
+                }
+            }
+            0xE => {
+                /* EXy: Extended command */
+                match self.current.effect_parameter >> 4 {
+                    0x9 => {
+                        /* E9y: Retrigger note */
+                        if current_tick != 0 && self.current.effect_parameter & 0x0F != 0 {
+                            let r = current_tick % (self.current.effect_parameter as u16 & 0x0F);
+                            if r != 0 {
+                                self.trigger_note(TriggerKeep::VOLUME);
+                                self.envelopes();
+                            }
+                        }
+                    }
+                    0xC => {
+                        /* ECy: Note cut */
+                        if (self.current.effect_parameter as u16 & 0x0F) == current_tick {
+                            self.cut_note();
+                        }
+                    }
+                    0xD => {
+                        /* EDy: Note delay */
+                        if self.note_delay_param as u16 == current_tick {
+                            self.handle_note_and_instrument();
+                            self.envelopes();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            17 => {
+                /* Hxy: Global volume slide */
+                if current_tick != 0 {
+                    if (self.global_volume_slide_param & 0xF0 != 0)
+                        && (self.global_volume_slide_param & 0x0F != 0)
+                    {
+                        /* Illegal state */
+                        return delta_volume;
+                    }
+                    if self.global_volume_slide_param & 0xF0 != 0 {
+                        /* Global slide up */
+                        delta_volume = (self.global_volume_slide_param >> 4) as f32 / 64.0;
+                    } else {
+                        /* Global slide down */
+                        delta_volume = -((self.global_volume_slide_param & 0x0F) as f32) / 64.0;
+                    }
+                }
+            }
+            20 => {
+                /* Kxx: Key off */
+                /* Most documentations will tell you the parameter has no
+                 * use. Don't be fooled. */
+                if current_tick == self.current.effect_parameter as u16 {
+                    self.key_off();
+                }
+            }
+            25 => {
+                /* Pxy: Panning slide */
+                if current_tick != 0 {
+                    let rawval = self.panning_slide_param;
+                    self.panning_slide(rawval);
+                }
+            }
+            27 => {
+                /* Rxy: Multi retrig note */
+                if current_tick != 0 {
+                    if ((self.multi_retrig_param) & 0x0F) != 0 {
+                        let r = current_tick % (self.multi_retrig_param as u16 & 0x0F);
+                        if r == 0 {
+                            self.trigger_note(TriggerKeep::VOLUME | TriggerKeep::ENVELOPE);
+
+                            /* Rxy doesn't affect volume if there's a command in the volume
+                            column, or if the instrument has a volume envelope. */
+                            if self.instrnr.is_some() {
+                                if let InstrumentType::Default(instr) =
+                                    &self.module.instrument[self.instrnr.unwrap()].instr_type
+                                {
+                                    if self.current.volume != 0 && !instr.volume_envelope.enabled {
+                                        let mut v = self.volume
+                                            * MULTI_RETRIG_MULTIPLY
+                                                [self.multi_retrig_param as usize >> 4]
+                                            + MULTI_RETRIG_ADD
+                                                [self.multi_retrig_param as usize >> 4]
+                                                / 64.0;
+                                        clamp(&mut v);
+                                        self.volume = v;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            29 => {
+                /* Txy: Tremor */
+                if current_tick != 0 {
+                    self.tremor_on = (current_tick - 1)
+                        % ((self.tremor_param as u16 >> 4) + (self.tremor_param as u16 & 0x0F) + 2)
+                        > (self.tremor_param as u16 >> 4);
+                }
+            }
+            _ => {}
+        }
+
+        let panning: f32 = self.panning
+            + (self.panning_envelope_panning - 0.5) * (0.5 - (self.panning - 0.5).abs()) * 2.0;
+        let mut volume = 0.0;
+
+        if !self.tremor_on {
+            volume = self.volume + self.tremolo_volume;
+            clamp(&mut volume);
+            volume *= self.fadeout_volume * self.volume_envelope_volume;
+        }
+
+        // if RAMPING {
+        //     /* See https://modarchive.org/forums/index.php?topic=3517.0
+        //      * and https://github.com/Artefact2/libxm/pull/16 */
+        //     self.target_volume[0] = volume * (1.0 - panning).sqrt();
+        //     self.target_volume[1] = volume * panning.sqrt();
+        // } else {
+        self.actual_volume[0] = volume * (1.0 - panning).sqrt();
+        self.actual_volume[1] = volume * panning.sqrt();
+        // }
+
+        return delta_volume;
+    }
+
+    fn handle_note_and_instrument(&mut self) {
         let noteu8: u8 = self.current.note.into();
         if self.current.instrument > 0 {
             if self.current.has_tone_portamento() && self.instrnr.is_some() && self.sample.is_some()
