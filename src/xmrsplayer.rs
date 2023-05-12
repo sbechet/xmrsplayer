@@ -1,9 +1,10 @@
-use crate::channel::{Channel, TriggerKeep, EMPTY_SLOT};
+use crate::channel::{Channel, TriggerKeep};
 use crate::helper::*;
+use std::sync::Arc;
 use xmrs::prelude::*;
 
-pub struct XmrsPlayer<'m, 'c> {
-    module: &'m Module,
+pub struct XmrsPlayer {
+    module: Arc<Module>,
     sample_rate: f32,
 
     tempo: u16,
@@ -16,7 +17,8 @@ pub struct XmrsPlayer<'m, 'c> {
     /* How much is a channel final volume allowed to change per
      * sample; this is used to avoid abrubt volume changes which
      * manifest as "clicks" in the generated sound. */
-    volume_ramp: f32,
+    // XXX
+    // volume_ramp: f32,
     // RAMPING END
     current_table_index: u16,
     current_row: u8,
@@ -33,7 +35,7 @@ pub struct XmrsPlayer<'m, 'c> {
      * Used for EEy effect */
     extra_ticks: u16,
 
-    channel: Vec<Channel<'c>>,
+    channel: Vec<Channel>,
 
     row_loop_count: Vec<Vec<u8>>,
     loop_count: u8,
@@ -42,17 +44,17 @@ pub struct XmrsPlayer<'m, 'c> {
     debug: bool,
 }
 
-impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
-    pub fn new(module: &'m Module, sample_rate: f32) -> Self {
+impl XmrsPlayer {
+    pub fn new(module: Arc<Module>, sample_rate: f32) -> Self {
         let num_channels = module.get_num_channels();
         Self {
-            module,
+            module: module.clone(),
             sample_rate,
             tempo: module.default_tempo,
             bpm: module.default_bpm,
             global_volume: 1.0,
             amplification: 0.25,
-            volume_ramp: 1.0 / 128.0,
+            // XXX volume_ramp: 1.0 / 128.0,
             current_table_index: 0,
             current_row: 0,
             current_tick: 0,
@@ -63,7 +65,7 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
             jump_dest: 0,
             jump_row: 0,
             extra_ticks: 0,
-            channel: vec![Channel::new(module.flags, sample_rate); num_channels],
+            channel: vec![Channel::new(module.clone(), module.flags, sample_rate); num_channels],
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             loop_count: 0,
             max_loop_count: 0,
@@ -85,6 +87,10 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
 
     pub fn get_sample_rate(&self) -> f32 {
         self.sample_rate
+    }
+
+    pub fn is_samples(&self) -> bool {
+        self.max_loop_count == 0 || self.loop_count <= self.max_loop_count
     }
 
     /// do a manual goto
@@ -121,6 +127,14 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         }
     }
 
+    pub fn get_current_pattern(&self) -> usize {
+        self.module.pattern_order[self.current_table_index as usize] as usize
+    }
+
+    pub fn get_current_row(&self) -> usize {
+        self.current_row as usize
+    }
+
     fn post_pattern_change(&mut self) {
         /* Loop if necessary */
         if self.current_table_index as usize >= self.module.pattern_order.len() {
@@ -135,267 +149,32 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         }
     }
 
-    fn handle_note_and_instrument(&mut self, ch_index: usize, s: &PatternSlot) {
+    pub fn tick0_global_effects(&mut self, ch_index: usize) {
         let ch = &mut self.channel[ch_index];
-        let noteu8: u8 = s.note.into();
-        if s.instrument > 0 {
-            if ch.current.unwrap_or(&EMPTY_SLOT).has_tone_portamento()
-                && ch.instrument.is_some()
-                && ch.sample.is_some()
-            {
-                /* Tone portamento in effect, unclear stuff happens */
-                ch.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
-            } else if let Note::None = s.note {
-                if ch.sample.is_some() {
-                    /* Ghost instrument, trigger note */
-                    /* Sample position is kept, but envelopes are reset */
-                    ch.trigger_note(TriggerKeep::SAMPLE_POSITION);
-                }
-            } else if s.instrument as usize > self.module.instrument.len() {
-                /* Invalid instrument, Cut current note */
-                ch.cut_note();
-                ch.instrument = None;
-                ch.sample = None;
-            } else {
-                let instrnr = s.instrument as usize - 1;
-                let instr = &self.module.instrument[instrnr];
-                if let InstrumentType::Default(id) = &instr.instr_type {
-                    // only good instr
-                    if id.sample.len() != 0 {
-                        ch.instrument = Some(instr);
-                    }
-                }
-            }
-        }
 
-        if note_is_valid(noteu8) {
-            if ch.instrument.is_some() {
-                match &ch.instrument.unwrap().instr_type {
-                    InstrumentType::Empty => ch.cut_note(),
-                    InstrumentType::Default(instr) => {
-                        if ch.current.unwrap_or(&EMPTY_SLOT).has_tone_portamento() {
-                            if ch.sample.is_some() {
-                                /* Tone portamento in effect */
-                                let chsample = ch.sample.unwrap();
-                                ch.note = noteu8 as f32 - 1.0
-                                    + chsample.relative_note as f32
-                                    + chsample.finetune;
-                                ch.tone_portamento_target_period =
-                                    period(self.module.flags, ch.note);
-                            } else if instr.sample.len() == 0 {
-                                ch.cut_note();
-                            }
-                        } else if (instr.sample_for_note[noteu8 as usize - 1] as usize)
-                            < instr.sample.len()
-                        {
-                            if RAMPING {
-                                for z in 0..SAMPLE_RAMPING_POINTS {
-                                    ch.end_of_previous_sample[z] = ch.next_of_sample();
-                                }
-                                ch.frame_count = 0;
-                            }
-                            let chsample: &Sample =
-                                &instr.sample[instr.sample_for_note[noteu8 as usize - 1] as usize];
-                            ch.sample = Some(chsample);
-                            ch.orig_note = noteu8 as f32 - 1.0
-                                + chsample.relative_note as f32
-                                + chsample.finetune;
-                            ch.note = ch.orig_note;
-
-                            if s.instrument > 0 {
-                                ch.trigger_note(TriggerKeep::NONE);
-                            } else {
-                                /* Ghost note: keep old volume */
-                                ch.trigger_note(TriggerKeep::VOLUME);
-                            }
-                        }
-                    }
-                    _ => {} // TODO
-                }
-            } else {
-                /* Bad instrument */
-                ch.cut_note();
-            }
-        } else if let Note::KeyOff = s.note {
-            ch.key_off();
-        }
-
-        match s.volume >> 4 {
-            0x0 => {} // Nothing
-            // V - Set volume (0..63)
-            0x1..=0x4 => ch.volume = (s.volume - 0x10) as f32 / 64.0,
-            // V - 0x51..0x5F undefined...
-            0x5 => ch.volume = 1.0,
-            // D - Volume slide down (0..15)
-            0x6 => {} // see tick() fn
-            // C - Volume slide up (0..15)
-            0x7 => {} // see tick() fn
-            // B - Fine volume down (0..15)
-            0x8 => ch.volume_slide(s.volume & 0x0F),
-            // A - Fine volume up (0..15)
-            0x9 => ch.volume_slide(s.volume << 4),
-            // U - Vibrato speed (0..15)
-            0xA => ch.vibrato_param = (ch.vibrato_param & 0x0F) | ((s.volume & 0x0F) << 4),
-            // H - Vibrato depth (0..15)
-            0xB => {} // see tick() fn
-            // P - Set panning (2,6,10,14..62)
-            0xC => ch.panning = (((s.volume & 0x0F) << 4) | (s.volume & 0x0F)) as f32 / 255.0,
-            // L - Pan slide left (0..15)
-            0xD => {} // see tick() fn
-            // R - Pan slide right (0..15)
-            0xE => {} // see tick() fn
-            // G - Tone portamento (0..15)
-            0xF => {
-                if s.volume & 0x0F != 0 {
-                    ch.tone_portamento_param = ((s.volume & 0x0F) << 4) | (s.volume & 0x0F);
-                }
-                // see also tick() fn
-            }
-            _ => {}
-        }
-
-        match s.effect_type {
-            0x1 => {
-                /* 1xx: Portamento up */
-                if s.effect_parameter > 0 {
-                    ch.portamento_up_param = s.effect_parameter;
-                }
-            }
-            0x2 => {
-                /* 2xx: Portamento down */
-                if s.effect_parameter > 0 {
-                    ch.portamento_down_param = s.effect_parameter;
-                }
-            }
-            0x3 => {
-                /* 3xx: Tone portamento */
-                if s.effect_parameter > 0 {
-                    ch.tone_portamento_param = s.effect_parameter;
-                }
-            }
-            0x4 => {
-                /* 4xy: Vibrato */
-                if s.effect_parameter & 0x0F != 0 {
-                    /* Set vibrato depth */
-                    ch.vibrato_param = (ch.vibrato_param & 0xF0) | (s.effect_parameter & 0x0F);
-                }
-                if s.effect_parameter >> 4 != 0 {
-                    /* Set vibrato speed */
-                    ch.vibrato_param = (s.effect_parameter & 0xF0) | (ch.vibrato_param & 0x0F);
-                }
-            }
-            0x5 => {
-                /* 5xy: Tone portamento + Volume slide */
-                if s.effect_parameter > 0 {
-                    ch.volume_slide_param = s.effect_parameter;
-                }
-            }
-            0x6 => {
-                /* 6xy: Vibrato + Volume slide */
-                if s.effect_parameter > 0 {
-                    ch.volume_slide_param = s.effect_parameter;
-                }
-            }
-            0x7 => {
-                /* 7xy: Tremolo */
-                if s.effect_parameter & 0x0F != 0 {
-                    /* Set tremolo depth */
-                    ch.tremolo_param = (ch.tremolo_param & 0xF0) | (s.effect_parameter & 0x0F);
-                }
-                if s.effect_parameter >> 4 != 0 {
-                    /* Set tremolo speed */
-                    ch.tremolo_param = (s.effect_parameter & 0xF0) | (ch.tremolo_param & 0x0F);
-                }
-            }
-            0x8 => {
-                /* 8xx: Set panning */
-                ch.panning = s.effect_parameter as f32 / 255.0;
-            }
-            0x9 => {
-                /* 9xx: Sample offset */
-                if ch.sample.is_some() && note_is_valid(noteu8) {
-                    let chsample = ch.sample.unwrap();
-
-                    let final_offset = if chsample.bits() == 16 {
-                        s.effect_parameter as usize * 256
-                    } else {
-                        s.effect_parameter as usize * 512
-                    };
-
-                    if final_offset >= chsample.len() {
-                        /* Pretend the sample doesn't loop and is done playing */
-                        ch.sample_position = -1.0;
-                    } else {
-                        ch.sample_position = final_offset as f32;
-                    }
-                }
-            }
-            0xA => {
-                /* Axy: Volume slide */
-                if s.effect_parameter > 0 {
-                    ch.volume_slide_param = s.effect_parameter;
-                }
-            }
+        match ch.current.effect_type {
             0xB => {
                 /* Bxx: Position jump */
-                if (s.effect_parameter as usize) < self.module.pattern_order.len() {
+                if (ch.current.effect_parameter as usize) < self.module.pattern_order.len() {
                     self.position_jump = true;
-                    self.jump_dest = s.effect_parameter as u16;
+                    self.jump_dest = ch.current.effect_parameter as u16;
                     self.jump_row = 0;
                 }
-            }
-            0xC => {
-                /* Cxx: Set volume */
-                ch.volume = if s.effect_parameter > 64 {
-                    1.0
-                } else {
-                    s.effect_parameter as f32 / 64.0
-                };
             }
             0xD => {
                 /* Dxx: Pattern break */
                 /* Jump after playing this line */
                 self.pattern_break = true;
-                self.jump_row = (s.effect_parameter >> 4) * 10 + (s.effect_parameter & 0x0F);
+                self.jump_row =
+                    (ch.current.effect_parameter >> 4) * 10 + (ch.current.effect_parameter & 0x0F);
             }
             0xE => {
                 /* EXy: Extended command */
-                match s.effect_parameter >> 4 {
-                    0x1 => {
-                        /* E1y: Fine portamento up */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.fine_portamento_up_param = s.effect_parameter as i8 & 0x0F;
-                        }
-                        ch.pitch_slide(-ch.fine_portamento_up_param);
-                    }
-                    0x2 => {
-                        /* E2y: Fine portamento down */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.fine_portamento_down_param = s.effect_parameter as i8 & 0x0F;
-                        }
-                        ch.pitch_slide(ch.fine_portamento_down_param);
-                    }
-                    0x4 => {
-                        /* E4y: Set vibrato control */
-                        ch.vibrato_waveform = Waveform::try_from(s.effect_parameter & 3).unwrap();
-                        ch.vibrato_waveform_retrigger = ((s.effect_parameter >> 2) & 1) == 0;
-                    }
-                    0x5 => {
-                        /* E5y: Set finetune */
-                        if note_is_valid(noteu8) && ch.sample.is_some() {
-                            let chsample = ch.sample.unwrap();
-                            let noteu8: u8 = ch.current.unwrap_or(&EMPTY_SLOT).note.into();
-                            ch.note = noteu8 as f32 - 1.0
-                                + chsample.relative_note as f32
-                                + (((s.effect_parameter & 0x0F) - 8) << 4) as f32 / 128.0;
-                            ch.period = period(self.module.flags, ch.note);
-                            ch.update_frequency();
-                        }
-                    }
+                match ch.current.effect_parameter >> 4 {
                     0x6 => {
                         /* E6y: Pattern loop */
-                        if s.effect_parameter & 0x0F != 0 {
-                            if (s.effect_parameter & 0x0F) == ch.pattern_loop_count {
+                        if ch.current.effect_parameter & 0x0F != 0 {
+                            if (ch.current.effect_parameter & 0x0F) == ch.pattern_loop_count {
                                 /* Loop is over */
                                 ch.pattern_loop_count = 0;
                             } else {
@@ -412,134 +191,30 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
                             self.jump_row = ch.pattern_loop_origin;
                         }
                     }
-                    0x7 => {
-                        /* E7y: Set tremolo control */
-                        ch.tremolo_waveform = Waveform::try_from(s.effect_parameter & 3).unwrap();
-                        ch.tremolo_waveform_retrigger = ((s.effect_parameter >> 2) & 1) == 0;
-                    }
-                    0xA => {
-                        /* EAy: Fine volume slide up */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.fine_volume_slide_param = s.effect_parameter & 0x0F;
-                        }
-                        ch.volume_slide(ch.fine_volume_slide_param << 4);
-                    }
-                    0xB => {
-                        /* EBy: Fine volume slide down */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.fine_volume_slide_param = s.effect_parameter & 0x0F;
-                        }
-                        ch.volume_slide(ch.fine_volume_slide_param);
-                    }
-                    0xD => {
-                        /* EDy: Note delay */
-                        /* XXX: figure this out better. EDx triggers
-                         * the note even when there no note and no
-                         * instrument. But ED0 acts like like a ghost
-                         * note, EDx (x ≠ 0) does not. */
-                        if let Note::None = s.note {
-                            if s.instrument == 0 {
-                                let flags = TriggerKeep::VOLUME;
-
-                                if ch.current.unwrap_or(&EMPTY_SLOT).effect_parameter & 0x0F != 0 {
-                                    ch.note = ch.orig_note;
-                                    ch.trigger_note(flags);
-                                } else {
-                                    ch.trigger_note(
-                                        flags | TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION,
-                                    );
-                                }
-                            }
-                        }
-                    }
                     0xE => {
                         /* EEy: Pattern delay */
-                        self.extra_ticks = (ch.current.unwrap_or(&EMPTY_SLOT).effect_parameter
-                            & 0x0F) as u16
-                            * self.tempo;
+                        self.extra_ticks = (ch.current.effect_parameter & 0x0F) as u16 * self.tempo;
                     }
                     _ => {}
                 }
             }
             0xF => {
                 /* Fxx: Set tempo/BPM */
-                if s.effect_parameter > 0 {
-                    if s.effect_parameter <= 0x1F {
-                        self.tempo = s.effect_parameter as u16;
+                if ch.current.effect_parameter > 0 {
+                    if ch.current.effect_parameter <= 0x1F {
+                        self.tempo = ch.current.effect_parameter as u16;
                     } else {
-                        self.bpm = s.effect_parameter as u16;
+                        self.bpm = ch.current.effect_parameter as u16;
                     }
                 }
             }
             0x10 => {
                 /* Gxx: Set global volume */
-                self.global_volume = if s.effect_parameter > 64 {
+                self.global_volume = if ch.current.effect_parameter > 64 {
                     1.0
                 } else {
-                    s.effect_parameter as f32 / 64.0
+                    ch.current.effect_parameter as f32 / 64.0
                 };
-            }
-            0x11 => {
-                /* Hxy: Global volume slide */
-                if s.effect_parameter > 0 {
-                    ch.global_volume_slide_param = s.effect_parameter;
-                }
-            }
-            0x12..=0x14 => { /* Unused */ }
-            0x15 => {
-                /* Lxx: Set envelope position */
-                ch.volume_envelope_frame_count = s.effect_parameter as u16;
-                ch.panning_envelope_frame_count = s.effect_parameter as u16;
-            }
-            0x16..=0x18 => { /* Unused */ }
-            0x19 => {
-                /* Pxy: Panning slide */
-                if s.effect_parameter > 0 {
-                    ch.panning_slide_param = s.effect_parameter;
-                }
-            }
-            0x1A => { /* Unused */ }
-            0x1B => {
-                /* Rxy: Multi retrig note */
-                if s.effect_parameter > 0 {
-                    if (s.effect_parameter >> 4) == 0 {
-                        /* Keep previous x value */
-                        ch.multi_retrig_param =
-                            (ch.multi_retrig_param & 0xF0) | (s.effect_parameter & 0x0F);
-                    } else {
-                        ch.multi_retrig_param = s.effect_parameter;
-                    }
-                }
-            }
-            0x1C => { /* Unused */ }
-            0x1D => {
-                /* Txy: Tremor */
-                if s.effect_parameter > 0 {
-                    /* Tremor x and y params do not appear to be separately
-                     * kept in memory, unlike Rxy */
-                    ch.tremor_param = s.effect_parameter;
-                }
-            }
-            0x1E..=0x20 => { /* Unused */ }
-            0x21 => {
-                /* Xxy: Extra stuff */
-                match s.effect_parameter >> 4 {
-                    1 => {
-                        /* X1y: Extra fine portamento up */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.extra_fine_portamento_up_param = s.effect_parameter as i8 & 0x0F;
-                        }
-                        ch.pitch_slide(-ch.extra_fine_portamento_up_param);
-                    }
-                    2 => {
-                        /* X2y: Extra fine portamento down */
-                        if s.effect_parameter & 0x0F != 0 {
-                            ch.extra_fine_portamento_down_param = s.effect_parameter as i8 & 0x0F;
-                        }
-                        ch.pitch_slide(ch.extra_fine_portamento_down_param);
-                    }
-                    _ => {}
-                }
             }
             _ => {}
         }
@@ -565,17 +240,11 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         let num_channels = self.module.get_num_channels();
         let mut in_a_loop = false;
 
-        for i in 0..num_channels {
-            let current_row = self.current_row as usize;
-            let s = &self.module.pattern[pat_idx][current_row][i];
-            self.channel[i].current = Some(s);
-            if s.effect_type != 0xE || (s.effect_parameter >> 4) != 0xD {
-                self.handle_note_and_instrument(i, s);
-            } else {
-                self.channel[i].note_delay_param = s.effect_parameter & 0x0F;
-            }
-
-            if !in_a_loop && self.channel[i].pattern_loop_count > 0 {
+        let current_row = self.current_row as usize;
+        for ch_index in 0..num_channels {
+            self.channel[ch_index].tick0(&self.module.pattern[pat_idx][current_row][ch_index]);
+            self.tick0_global_effects(ch_index);
+            if !in_a_loop && self.channel[ch_index].pattern_loop_count > 0 {
                 in_a_loop = true;
             }
         }
@@ -615,7 +284,7 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
             self.channel[ch_index].envelopes();
             self.channel[ch_index].autovibrato();
 
-            let pattern_slot = self.channel[ch_index].current.unwrap_or(&EMPTY_SLOT);
+            let pattern_slot = self.channel[ch_index].current;
 
             if self.channel[ch_index].arp_in_progress && !pattern_slot.has_arpeggio() {
                 self.channel[ch_index].arp_in_progress = false;
@@ -770,7 +439,8 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
                         0xD => {
                             /* EDy: Note delay */
                             if self.channel[ch_index].note_delay_param as u16 == self.current_tick {
-                                self.handle_note_and_instrument(ch_index, pattern_slot);
+                                self.channel[ch_index].handle_note_and_instrument();
+                                self.tick0_global_effects(ch_index);
                                 self.channel[ch_index].envelopes();
                             }
                         }
@@ -829,9 +499,10 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
 
                                 /* Rxy doesn't affect volume if there's a command in the volume
                                 column, or if the instrument has a volume envelope. */
-                                if self.channel[ch_index].instrument.is_some() {
-                                    if let InstrumentType::Default(instr) =
-                                        &self.channel[ch_index].instrument.unwrap().instr_type
+                                if self.channel[ch_index].instrnr.is_some() {
+                                    if let InstrumentType::Default(instr) = &self.module.instrument
+                                        [self.channel[ch_index].instrnr.unwrap()]
+                                    .instr_type
                                     {
                                         if pattern_slot.volume != 0
                                             && !instr.volume_envelope.enabled
@@ -881,15 +552,15 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
                     * self.channel[ch_index].volume_envelope_volume;
             }
 
-            if RAMPING {
-                /* See https://modarchive.org/forums/index.php?topic=3517.0
-                 * and https://github.com/Artefact2/libxm/pull/16 */
-                self.channel[ch_index].target_volume[0] = volume * (1.0 - panning).sqrt();
-                self.channel[ch_index].target_volume[1] = volume * panning.sqrt();
-            } else {
-                self.channel[ch_index].actual_volume[0] = volume * (1.0 - panning).sqrt();
-                self.channel[ch_index].actual_volume[1] = volume * panning.sqrt();
-            }
+            // if RAMPING {
+            //     /* See https://modarchive.org/forums/index.php?topic=3517.0
+            //      * and https://github.com/Artefact2/libxm/pull/16 */
+            //     self.channel[ch_index].target_volume[0] = volume * (1.0 - panning).sqrt();
+            //     self.channel[ch_index].target_volume[1] = volume * panning.sqrt();
+            // } else {
+            self.channel[ch_index].actual_volume[0] = volume * (1.0 - panning).sqrt();
+            self.channel[ch_index].actual_volume[1] = volume * panning.sqrt();
+            // }
         }
 
         self.current_tick += 1;
@@ -917,29 +588,29 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
         }
 
         for ch in &mut self.channel {
-            if ch.instrument.is_none() || ch.sample.is_none() || ch.sample_position < 0.0 {
+            if ch.instrnr.is_none() || ch.sample.is_none() || ch.sample_position < 0.0 {
                 continue;
             }
             let fval = ch.next_of_sample();
 
-            if !ch.muted && !ch.instrument.unwrap().muted {
+            if !ch.muted && !ch.module.instrument[ch.instrnr.unwrap()].muted {
                 left += fval * ch.actual_volume[0];
                 right += fval * ch.actual_volume[1];
             }
 
-            if RAMPING {
-                ch.frame_count += 1;
-                slide_towards(
-                    &mut ch.actual_volume[0],
-                    ch.target_volume[0],
-                    self.volume_ramp,
-                );
-                slide_towards(
-                    &mut ch.actual_volume[1],
-                    ch.target_volume[1],
-                    self.volume_ramp,
-                );
-            }
+            // if RAMPING {
+            //     ch.frame_count += 1;
+            //     slide_towards(
+            //         &mut ch.actual_volume[0],
+            //         ch.target_volume[0],
+            //         self.volume_ramp,
+            //     );
+            //     slide_towards(
+            //         &mut ch.actual_volume[1],
+            //         ch.target_volume[1],
+            //         self.volume_ramp,
+            //     );
+            // }
         }
 
         let fgvol = self.global_volume * self.amplification;
@@ -965,7 +636,7 @@ impl<'m: 'c, 'c> XmrsPlayer<'m, 'c> {
     }
 }
 
-impl<'m: 'c, 'c> Iterator for XmrsPlayer<'m, 'c> {
+impl Iterator for XmrsPlayer {
     type Item = (f32, f32);
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -1,8 +1,8 @@
 [package]
 name = "xmrsplayer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-description = "XMrsPlayer is a rust port libxm player "
+description = "XMrsPlayer is a portage of libxm in Rust language to play real music "
 license = "MIT"
 authors = ["Sebastien Bechet"]
 documentation = "https://docs.rs/xmrsplayer"
@@ -20,6 +20,7 @@ lazy_static = "1.4"
 num_enum = "0.6"
 rodio = "0.17"
 xmrs = "0.3"
+console = "0.15.5"
 
 [lib]
 name = "xmrsplayer"

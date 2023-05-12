@@ -1,14 +1,15 @@
 use clap::Parser;
-
-use rodio::{buffer::SamplesBuffer, Sink};
+use console::{Key, Term};
+use rodio::Sink;
+use std::sync::Arc;
 
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
 
+use xmrsplayer::modulesource::ModuleSource;
 use xmrsplayer::prelude::*;
 
 const SAMPLE_RATE: u32 = 48000;
-const BUFFER_LEN: usize = 48000;
 
 #[derive(Parser)]
 struct Cli {
@@ -16,7 +17,7 @@ struct Cli {
     #[arg(
         short = 'f',
         long,
-        default_value = "default.xmrs",
+        default_value = "DEADLOCK.XM",
         value_name = "filename"
     )]
     filename: Option<String>,
@@ -43,20 +44,27 @@ fn main() -> Result<(), std::io::Error> {
 
     match cli.filename {
         Some(filename) => {
+            Term::stdout().clear_screen().unwrap();
             println!("--===~ XmRs Player Example ~===--");
             println!("(c) 2023 Sébastien Béchet\n");
             println!("Because demo scene can't die :)\n");
-            let path = std::env::current_dir()?;
-            println!("The current directory is {}", path.display());
+            // let path = std::env::current_dir()?;
+            // println!("The current directory is {}", path.display());
             println!("opening {}", filename);
             let contents = std::fs::read(filename.trim())?;
             match XmModule::load(&contents) {
                 Ok(xm) => {
-                    println!("XM '{}' loaded...", xm.header.name);
+                    print!("XM '{}' loaded...", xm.header.name);
 
-                    let mut module: Module = xm.to_module();
-                    println!("'{}' converted to module...", module.name);
-                    rodio_play(&mut module, cli.amplification, cli.position, cli.loops, cli.debug);
+                    let module = Arc::new(xm.to_module());
+                    println!("Playing {} !", module.name);
+                    rodio_play(
+                        module.clone(),
+                        cli.amplification,
+                        cli.position,
+                        cli.loops,
+                        cli.debug,
+                    );
                 }
                 Err(e) => {
                     println!("{:?}", e);
@@ -68,24 +76,38 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn rodio_play(module: &Module, amplification: f32, position: usize, loops: u8, debug: bool) {
-    let mut player = XmrsPlayer::new(&module, SAMPLE_RATE as f32);
+fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool) {
+    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+    let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
+
+    let mut player = XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32);
     player.amplification = amplification;
+    if debug {
+        println!("Debug on");
+    }
     player.debug(debug);
     player.set_max_loop_count(loops);
     player.goto(position, 0);
 
-    let mut buffer: [f32; BUFFER_LEN] = [0.0; BUFFER_LEN];
+    let source = ModuleSource::new(player, SAMPLE_RATE);
+    sink.append(source);
+    sink.play();
 
-    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
-
-    while loops == 0 || player.get_loop_count() < loops {
-        player.generate_samples(&mut buffer);
-        // println!("{:02?}", &buffer);
-        let source = SamplesBuffer::new(2, SAMPLE_RATE, buffer);
-        sink.append(source);
-        sink.play();
+    let stdout = Term::stdout();
+    println!("Enter key for info, escape key to exit...");
+    loop {
+        if let Ok(character) = stdout.read_key() {
+            match character {
+                Key::Enter => {
+                    println!("Example");
+                }
+                Key::Escape => {
+                    println!("Have a nice day!");
+                    sink.stop();
+                    return;
+                }
+                _ => {}
+            }
+        }
     }
-    sink.stop();
 }

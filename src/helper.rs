@@ -1,8 +1,8 @@
 use xmrs::prelude::ModuleFlag;
 
 pub const DEBUG: bool = false;
-pub const LINEAR_INTERPOLATION: bool = true;
-pub const RAMPING: bool = true;
+pub const LINEAR_INTERPOLATION: bool = false;
+pub const RAMPING: bool = false;
 pub const SAMPLE_RAMPING_POINTS: usize = 32;
 
 pub const AMIGA_FREQ_SCALE: usize = 1024;
