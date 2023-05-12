@@ -54,9 +54,10 @@ fn main() -> Result<(), std::io::Error> {
             let contents = std::fs::read(filename.trim())?;
             match XmModule::load(&contents) {
                 Ok(xm) => {
+                    drop(contents); // cleanup memory
                     print!("XM '{}' loaded...", xm.header.name);
-
                     let module = Arc::new(xm.to_module());
+                    drop(xm);
                     println!("Playing {} !", module.name);
                     rodio_play(
                         module.clone(),

@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "XMrsPlayer is a portage of libxm in Rust language to play real music "
 license = "MIT"
