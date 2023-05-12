@@ -1075,7 +1075,7 @@ impl Channel {
                                 let noteu8: u8 = self.current.note.into();
                                 self.note = noteu8 as f32 - 1.0
                                     + chsample.relative_note as f32
-                                    + (((self.current.effect_parameter & 0x0F) - 8) << 4) as f32
+                                    + (((self.current.effect_parameter & 0x0F) as i8 - 8) << 4) as f32
                                         / 128.0;
                                 self.period = period(self.module.flags, self.note);
                                 self.update_frequency();
