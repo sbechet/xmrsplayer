@@ -40,6 +40,7 @@ pub struct XmrsPlayer {
     loop_count: u8,
     max_loop_count: u8,
 
+    right_sample: Option<f32>, // None if next-one is a left sample, else right sample
     debug: bool,
 }
 
@@ -68,6 +69,7 @@ impl XmrsPlayer {
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             loop_count: 0,
             max_loop_count: 0,
+            right_sample: None,
             debug: false,
         }
     }
@@ -341,6 +343,25 @@ impl XmrsPlayer {
         Some((left, right))
     }
 
+    fn sample_one(&mut self) -> Option<f32> {
+        match self.right_sample {
+            Some(right) => {
+                self.right_sample = None;
+                return Some(right);
+            }
+            None => {
+                let next_samples = self.sample();
+                match next_samples {
+                    Some( (left, right)) => {
+                        self.right_sample = Some(right);
+                        return Some(left);        
+                    },
+                    None => return None,
+                }
+            }
+        }
+    }
+
     pub fn generate_samples(&mut self, output: &mut [f32]) {
         let numsamples = output.len() / 2;
         self.generated_samples += numsamples as u64;
@@ -358,14 +379,14 @@ impl XmrsPlayer {
 }
 
 impl Iterator for XmrsPlayer {
-    type Item = (f32, f32);
+    type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.max_loop_count > 0 && self.loop_count >= self.max_loop_count {
             return None;
         } else {
             self.generated_samples += 1;
-            self.sample()
+            self.sample_one()
         }
     }
 }

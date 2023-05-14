@@ -6,7 +6,7 @@ use std::sync::Arc;
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
 
-use xmrsplayer::modulesource::ModuleSource;
+use xmrsplayer::bufferedsource::BufferedSource;
 use xmrsplayer::prelude::*;
 
 const SAMPLE_RATE: u32 = 48000;
@@ -90,8 +90,10 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
     player.set_max_loop_count(loops);
     player.goto(position, 0);
 
-    let source = ModuleSource::new(player, SAMPLE_RATE);
+
+    let source = BufferedSource::new(player, SAMPLE_RATE);
     sink.append(source);
+    // sink.append(player.buffered());
     sink.play();
 
     let stdout = Term::stdout();
@@ -110,5 +112,6 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
                 _ => {}
             }
         }
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

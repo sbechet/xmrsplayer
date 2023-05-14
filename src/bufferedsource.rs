@@ -6,16 +6,16 @@ use xmrs::xm::xmmodule::XmModule;
 
 pub const BUFFER_SIZE: usize = 2048;
 
-pub struct ModuleSource {
+pub struct BufferedSource {
     pub player: XmrsPlayer,
     buffer: [f32; BUFFER_SIZE],
     buffer_index: usize,
     sample_rate: u32,
 }
 
-impl ModuleSource {
+impl BufferedSource {
     pub fn new(player: XmrsPlayer, sample_rate: u32) -> Self {
-        ModuleSource {
+        BufferedSource {
             player,
             buffer: [0.0; BUFFER_SIZE],
             buffer_index: 0,
@@ -28,7 +28,7 @@ impl ModuleSource {
     }
 }
 
-impl Source for ModuleSource {
+impl Source for BufferedSource {
     fn current_frame_len(&self) -> Option<usize> {
         Some(BUFFER_SIZE - self.buffer_index)
     }
@@ -43,7 +43,7 @@ impl Source for ModuleSource {
     }
 }
 
-impl Iterator for ModuleSource {
+impl Iterator for BufferedSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
