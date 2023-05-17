@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::prelude::*;
+use xmrsplayer::xmrsplayer::XmrsPlayer;
 use rodio::Source;
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
@@ -21,10 +21,6 @@ impl BufferedSource {
             buffer_index: 0,
             sample_rate,
         }
-    }
-
-    pub fn get_loop_count(&self) -> u8 {
-        self.player.get_loop_count()
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "XMrsPlayer is a portage of libxm in Rust language to play real music "
 license = "MIT"
@@ -12,24 +12,30 @@ readme = "README.md"
 keywords = ["xm", "module", "mod", "s3m", "tracker"]
 categories = ["multimedia::audio"]
 
-
 [dependencies]
-clap = { version = "^4.2", features = ["cargo", "derive"] }
 bitflags = "2.0"
-rodio = "0.17"
 xmrs = "0.3"
-console = "0.15.5"
+clap = { version = "^4.2", optional = true, features = ["cargo", "derive"] }
+rodio =  { version = "0.17", optional = true }
+console =  { version = "0.15.5", optional = true }
+cpal =  { version = "0.15.2", optional = true }
+
+[features]
+default = []
+demo = ["clap", "rodio", "console", "cpal"]
 
 [lib]
 name = "xmrsplayer"
 path = "src/lib.rs"
 
-[[bin]]
-name = "player"
-path = "src/bin/player.rs"
+[examples]
+rodio_player = { name = "rodio_player", path = "examples/rodio_player.rs", features=["demo"] }
+cpal_player = { name = "cpal_player", path = "examples/cpal_player.rs", features=["demo"] }
 
 [profile.release]
 strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
+
+

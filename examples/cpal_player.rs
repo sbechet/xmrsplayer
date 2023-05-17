@@ -1,15 +1,14 @@
 use clap::Parser;
 use console::{Key, Term};
-use rodio::Sink;
-use std::sync::Arc;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use std::sync::{Arc, Mutex};
 
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
 
-use xmrsplayer::bufferedsource::BufferedSource;
 use xmrsplayer::prelude::*;
 
-const SAMPLE_RATE: u32 = 48000;
+const SAMPLE_RATE: u32 = 44100;
 
 #[derive(Parser)]
 struct Cli {
@@ -59,13 +58,14 @@ fn main() -> Result<(), std::io::Error> {
                     let module = Arc::new(xm.to_module());
                     drop(xm);
                     println!("Playing {} !", module.name);
-                    rodio_play(
+                    cpal_play(
                         module.clone(),
                         cli.amplification,
                         cli.position,
                         cli.loops,
                         cli.debug,
                     );
+
                 }
                 Err(e) => {
                     println!("{:?}", e);
@@ -77,24 +77,23 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool) {
-    let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-    let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
-    let mut player = XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32);
-    player.amplification = amplification;
-    if debug {
-        println!("Debug on");
+fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool) -> Arc<Mutex<XmrsPlayer>> {
+    let mut player = Arc::new(Mutex::new(XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32)));
+
+    {
+        let mut player_lock = player.lock().unwrap();
+        player_lock.amplification = amplification;
+        if debug {
+            println!("Debug on");
+        }
+        player_lock.debug(debug);
+        player_lock.set_max_loop_count(loops);
+        player_lock.goto(position, 0);
     }
-    player.debug(debug);
-    player.set_max_loop_count(loops);
-    player.goto(position, 0);
 
+    start_audio_player(player.clone()).expect("failed to start player");
 
-    let source = BufferedSource::new(player, SAMPLE_RATE);
-    sink.append(source);
-    // sink.append(player.buffered());
-    sink.play();
 
     let stdout = Term::stdout();
     println!("Enter key for info, escape key to exit...");
@@ -106,12 +105,49 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
                 }
                 Key::Escape => {
                     println!("Have a nice day!");
-                    sink.stop();
-                    return;
+                    return player;
                 }
-                _ => {}
+                _ => {
+                    println!("no way");
+                }
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
-    }
+        let t= player.lock().unwrap().get_current_pattern();
+        println!("current pattern:{}", t);
 }
+
+}
+
+
+fn start_audio_player(player: Arc<Mutex<XmrsPlayer>>) -> Result<(), cpal::StreamError> {
+    let host = cpal::default_host();
+    let device = host.default_output_device().expect("no output device available");
+
+    let config = device.default_output_config().expect("failed to get default output config");
+    let sample_rate = config.sample_rate();
+
+    println!("cpal sample rate: {:?}", sample_rate);
+
+    std::thread::spawn(move || {
+        let stream = device
+        .build_output_stream(
+            &config.config(),
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                let mut player_lock = player.lock().unwrap();
+                for sample in data.iter_mut() {
+                    *sample = player_lock.next().unwrap_or(0.0);
+                }
+            },
+            |_: cpal::StreamError| {},
+            None,
+        )
+        .expect("failed to build output stream");
+
+        stream.play().expect("failed to play stream");
+        std::thread::sleep(std::time::Duration::from_secs_f32(60.0));
+    });
+
+    Ok(())
+}
+

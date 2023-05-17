@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use xmrsplayer::xmrsplayer::XmrsPlayer;
 use rodio::Source;
 
 impl Source for XmrsPlayer {

@@ -6,8 +6,10 @@ the original [code](https://github.com/Artefact2/libxm) uses the WTFPL Version2 
 # Example?
 
 ```
-$ cargo run --release
-$ cargo run --release -- --help
+$ cargo run --release --features demo --example rodio_player
+$ cargo run --release --features demo --example rodio_player -- --help
+$ cargo run --release --features demo --example cpal_player
+$ cargo run --release --features demo --example cpal_player -- --help
 ```
 
 See `src/bin/player.rs` as an example.
