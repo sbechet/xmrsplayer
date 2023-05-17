@@ -12,4 +12,3 @@ $ cargo run --release --features demo --example cpal_player
 $ cargo run --release --features demo --example cpal_player -- --help
 ```
 
-See `src/bin/player.rs` as an example.
