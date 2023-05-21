@@ -4,20 +4,20 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'player'",
+            "name": "Debug executable 'rodio_player'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=player",
-                    "--package=xmrsplayer"
+                    "--package=xmrsplayer",
+                    "--features=demo",
+                    "--example=rodio_player"
                 ],
                 "filter": {
-                    "name": "player",
-                    "kind": "bin"
+                    "name": "rodio_player",
+                    "kind": "example"
                 }
             },
             "args": ["-f DEADLOCK.XM"],
@@ -26,17 +26,57 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'player'",
+            "name": "Debug unit tests in executable 'rodio_player'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=player",
-                    "--package=player"
+                    "--package=xmrsplayer",
+                    "--features=demo",
+                    "--example=rodio_player"
                 ],
                 "filter": {
-                    "name": "player",
-                    "kind": "bin"
+                    "name": "rodio_player",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'cpal_player'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--package=xmrsplayer",
+                    "--features=demo",
+                    "--example=cpal_player"
+                ],
+                "filter": {
+                    "name": "cpal_player",
+                    "kind": "example"
+                }
+            },
+            "args": ["-f DEADLOCK.XM"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'cpal_player'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--package=xmrsplayer",
+                    "--features=demo",
+                    "--example=cpal_player"
+                ],
+                "filter": {
+                    "name": "cpal_player",
+                    "kind": "example"
                 }
             },
             "args": [],
