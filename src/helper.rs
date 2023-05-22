@@ -18,9 +18,9 @@ pub static AMIGA_PERIODS: [usize; 13] = [
     1141 * AMIGA_PERIOD_SCALE, // G-2
     1077 * AMIGA_PERIOD_SCALE, // G#2
     1016 * AMIGA_PERIOD_SCALE, // A-2
-    961 * AMIGA_PERIOD_SCALE, // A#2
-    907 * AMIGA_PERIOD_SCALE, // B-2
-    856 * AMIGA_PERIOD_SCALE, // C-3
+    961 * AMIGA_PERIOD_SCALE,  // A#2
+    907 * AMIGA_PERIOD_SCALE,  // B-2
+    856 * AMIGA_PERIOD_SCALE,  // C-3
 ];
 
 pub static MULTI_RETRIG_ADD: [f32; 16] = [
@@ -151,7 +151,12 @@ pub fn amiga_frequency(period: f32) -> f32 {
     }
 }
 
-pub fn frequency(freq_type: FrequencyType, period: f32, note_offset: f32, period_offset: f32) -> f32 {
+pub fn frequency(
+    freq_type: FrequencyType,
+    period: f32,
+    note_offset: f32,
+    period_offset: f32,
+) -> f32 {
     match freq_type {
         FrequencyType::LinearFrequencies => {
             linear_frequency(period - 64.0 * note_offset - 16.0 * period_offset)

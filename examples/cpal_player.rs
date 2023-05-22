@@ -65,7 +65,6 @@ fn main() -> Result<(), std::io::Error> {
                         cli.loops,
                         cli.debug,
                     );
-
                 }
                 Err(e) => {
                     println!("{:?}", e);
@@ -77,9 +76,17 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-
-fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool) -> Arc<Mutex<XmrsPlayer>> {
-    let player = Arc::new(Mutex::new(XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32)));
+fn cpal_play(
+    module: Arc<Module>,
+    amplification: f32,
+    position: usize,
+    loops: u8,
+    debug: bool,
+) -> Arc<Mutex<XmrsPlayer>> {
+    let player = Arc::new(Mutex::new(XmrsPlayer::new(
+        module.clone(),
+        SAMPLE_RATE as f32,
+    )));
 
     {
         let mut player_lock = player.lock().unwrap();
@@ -93,7 +100,6 @@ fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8
     }
 
     start_audio_player(player.clone()).expect("failed to start player");
-
 
     let stdout = Term::stdout();
     println!("Enter key for info, escape key to exit...");
@@ -113,36 +119,38 @@ fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
-        let t= player.lock().unwrap().get_current_pattern();
+        let t = player.lock().unwrap().get_current_pattern();
         println!("current pattern:{}", t);
     }
-
 }
-
 
 fn start_audio_player(player: Arc<Mutex<XmrsPlayer>>) -> Result<(), cpal::StreamError> {
     let host = cpal::default_host();
-    let device = host.default_output_device().expect("no output device available");
+    let device = host
+        .default_output_device()
+        .expect("no output device available");
 
-    let config = device.default_output_config().expect("failed to get default output config");
+    let config = device
+        .default_output_config()
+        .expect("failed to get default output config");
     let sample_rate = config.sample_rate();
 
     println!("cpal sample rate: {:?}", sample_rate);
 
     std::thread::spawn(move || {
         let stream = device
-        .build_output_stream(
-            &config.config(),
-            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let mut player_lock = player.lock().unwrap();
-                for sample in data.iter_mut() {
-                    *sample = player_lock.next().unwrap_or(0.0);
-                }
-            },
-            |_: cpal::StreamError| {},
-            None,
-        )
-        .expect("failed to build output stream");
+            .build_output_stream(
+                &config.config(),
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    let mut player_lock = player.lock().unwrap();
+                    for sample in data.iter_mut() {
+                        *sample = player_lock.next().unwrap_or(0.0);
+                    }
+                },
+                |_: cpal::StreamError| {},
+                None,
+            )
+            .expect("failed to build output stream");
 
         stream.play().expect("failed to play stream");
         std::thread::sleep(std::time::Duration::from_secs_f32(60.0));
@@ -150,4 +158,3 @@ fn start_audio_player(player: Arc<Mutex<XmrsPlayer>>) -> Result<(), cpal::Stream
 
     Ok(())
 }
-

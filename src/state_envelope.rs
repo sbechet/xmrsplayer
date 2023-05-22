@@ -9,7 +9,6 @@ pub struct StateEnvelope {
 }
 
 impl StateEnvelope {
-
     // value is volume_envelope_volume=1.0 or volume_envelope_panning=0.5
     pub fn new(value: f32) -> Self {
         Self {
@@ -31,33 +30,31 @@ impl StateEnvelope {
             0 => self.value = 0.0,
             1 => {
                 let outval = env.point[0].value as f32 / 64.0;
-                self.value = if outval > 1.0 {
-                    1.0
-                } else {
-                    outval
-                };
-            },
+                self.value = if outval > 1.0 { 1.0 } else { outval };
+            }
             _ => {
                 if env.loop_enabled {
                     let loop_start: u16 = env.point[env.loop_start_point as usize].frame;
                     let loop_end: u16 = env.point[env.loop_end_point as usize].frame;
                     let loop_length: u16 = loop_end - loop_start;
-    
+
                     if self.counter >= loop_end {
                         self.counter -= loop_length;
                     }
                 }
-    
+
                 let mut j: usize = 0;
                 while j < (env.point.len() - 2) {
-                    if env.point[j].frame <= self.counter && env.point[j + 1].frame >= self.counter {
+                    if env.point[j].frame <= self.counter && env.point[j + 1].frame >= self.counter
+                    {
                         break;
                     }
                     j += 1;
                 }
-    
-                self.value = EnvelopePoint::lerp(&env.point[j], &env.point[j + 1], self.counter) / 64.0;
-    
+
+                self.value =
+                    EnvelopePoint::lerp(&env.point[j], &env.point[j + 1], self.counter) / 64.0;
+
                 /* Make sure it is safe to increment frame count */
                 self.counter = if !sustained
                     || !env.sustain_enabled
@@ -67,10 +64,8 @@ impl StateEnvelope {
                 } else {
                     self.counter
                 };
-    
             }
         }
-        return self.value
+        return self.value;
     }
-
 }

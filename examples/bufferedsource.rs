@@ -1,8 +1,8 @@
 #![allow(unused_imports)]
-use xmrsplayer::xmrsplayer::XmrsPlayer;
 use rodio::Source;
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
+use xmrsplayer::xmrsplayer::XmrsPlayer;
 
 pub const BUFFER_SIZE: usize = 2048;
 

@@ -1,5 +1,5 @@
-use xmrsplayer::xmrsplayer::XmrsPlayer;
 use rodio::Source;
+use xmrsplayer::xmrsplayer::XmrsPlayer;
 
 impl Source for XmrsPlayer {
     fn current_frame_len(&self) -> Option<usize> {

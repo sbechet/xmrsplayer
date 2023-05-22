@@ -60,7 +60,7 @@ pub struct Channel {
     pub fine_portamento_down_param: i8,
     pub extra_fine_portamento_up_param: i8,
     pub extra_fine_portamento_down_param: i8,
-    
+
     pub tone_portamento_param: u8,
     pub tone_portamento_target_period: f32,
     pub multi_retrig_param: u8,
@@ -280,10 +280,12 @@ impl Channel {
                             self.state_envelope_volume_fadeout -= instrument.volume_fadeout;
                             clamp_down(&mut self.state_envelope_volume_fadeout);
                         }
-                        self.state_envelope_volume.tick(&instrument.volume_envelope, self.envelope_sustained);
+                        self.state_envelope_volume
+                            .tick(&instrument.volume_envelope, self.envelope_sustained);
                     }
                     if instrument.panning_envelope.enabled {
-                        self.state_envelope_panning.tick(&instrument.panning_envelope, self.envelope_sustained);
+                        self.state_envelope_panning
+                            .tick(&instrument.panning_envelope, self.envelope_sustained);
                     }
                 }
                 _ => {} // TODO
@@ -306,8 +308,10 @@ impl Channel {
         }
 
         match &self.module.instrument[self.instrnr.unwrap()].instr_type {
-            InstrumentType::Default(instr) => self.state_sample.tick(&instr.sample[self.sample.unwrap()]),
-            _ => 0.0
+            InstrumentType::Default(instr) => {
+                self.state_sample.tick(&instr.sample[self.sample.unwrap()])
+            }
+            _ => 0.0,
         }
     }
 
@@ -545,8 +549,7 @@ impl Channel {
                                     let mut v = self.volume
                                         * MULTI_RETRIG_MULTIPLY
                                             [self.multi_retrig_param as usize >> 4]
-                                        + MULTI_RETRIG_ADD
-                                            [self.multi_retrig_param as usize >> 4]
+                                        + MULTI_RETRIG_ADD[self.multi_retrig_param as usize >> 4]
                                             / 64.0;
                                     clamp(&mut v);
                                     self.volume = v;
@@ -812,14 +815,16 @@ impl Channel {
                     0x1 => {
                         /* E1y: Fine portamento up */
                         if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_portamento_up_param = self.current.effect_parameter as i8 & 0x0F;
+                            self.fine_portamento_up_param =
+                                self.current.effect_parameter as i8 & 0x0F;
                         }
                         self.pitch_slide(-self.fine_portamento_up_param);
                     }
                     0x2 => {
                         /* E2y: Fine portamento down */
                         if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_portamento_down_param = self.current.effect_parameter as i8 & 0x0F;
+                            self.fine_portamento_down_param =
+                                self.current.effect_parameter as i8 & 0x0F;
                         }
                         self.pitch_slide(self.fine_portamento_down_param);
                     }
@@ -840,7 +845,8 @@ impl Channel {
                                 let noteu8: u8 = self.current.note.into();
                                 self.note = noteu8 as f32 - 1.0
                                     + chsample.relative_note as f32
-                                    + (((self.current.effect_parameter & 0x0F) as i8 - 8) << 4) as f32
+                                    + (((self.current.effect_parameter & 0x0F) as i8 - 8) << 4)
+                                        as f32
                                         / 128.0;
                                 self.period = period(self.module.frequency_type, self.note);
                                 self.update_frequency();

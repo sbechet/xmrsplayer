@@ -91,7 +91,6 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
     player.set_max_loop_count(loops);
     player.goto(position, 0);
 
-
     let source = BufferedSource::new(player, SAMPLE_RATE);
     sink.append(source);
     // sink.append(player.buffered());

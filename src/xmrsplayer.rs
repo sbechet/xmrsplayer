@@ -67,7 +67,10 @@ impl XmrsPlayer {
             jump_dest: 0,
             jump_row: 0,
             extra_ticks: 0,
-            channel: vec![Channel::new(module.clone(), module.frequency_type, sample_rate); num_channels],
+            channel: vec![
+                Channel::new(module.clone(), module.frequency_type, sample_rate);
+                num_channels
+            ],
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             loop_count: 0,
             max_loop_count: 0,
@@ -300,8 +303,7 @@ impl XmrsPlayer {
                 {
                     /* Illegal state */
                     0.0
-                }
-                else if self.global_volume_slide_param & 0xF0 != 0 {
+                } else if self.global_volume_slide_param & 0xF0 != 0 {
                     /* Global slide up */
                     (self.global_volume_slide_param >> 4) as f32 / 64.0
                 } else {
@@ -378,10 +380,10 @@ impl XmrsPlayer {
             None => {
                 let next_samples = self.sample();
                 match next_samples {
-                    Some( (left, right)) => {
+                    Some((left, right)) => {
                         self.right_sample = Some(right);
-                        return Some(left);        
-                    },
+                        return Some(left);
+                    }
                     None => return None,
                 }
             }

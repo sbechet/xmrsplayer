@@ -9,11 +9,10 @@ pub struct StateSample {
     /// step is freq / rate
     pub step: f32,
     /// For ping-pong samples: true is -->, false is <--
-    pub ping : bool,
+    pub ping: bool,
 }
 
 impl StateSample {
-
     pub fn new() -> Self {
         Self {
             ..Default::default()
@@ -95,8 +94,7 @@ impl StateSample {
                 if self.ping {
                     if self.position as u32 >= loop_end {
                         self.ping = false;
-                        self.position =
-                            (loop_end << 1) as f32 - self.position;
+                        self.position = (loop_end << 1) as f32 - self.position;
                     }
                     /* sanity self.cking */
                     if self.position as usize >= sample.len() {
@@ -121,8 +119,7 @@ impl StateSample {
 
                     if self.position as u32 <= sample.loop_start {
                         self.ping = true;
-                        self.position =
-                            (sample.loop_start << 1) as f32 - self.position;
+                        self.position = (sample.loop_start << 1) as f32 - self.position;
                     }
                     /* sanity self.cking */
                     if self.position <= 0.0 {
@@ -153,6 +150,4 @@ impl StateSample {
 
         return endval;
     }
-
 }
-
