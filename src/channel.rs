@@ -392,9 +392,7 @@ impl Channel {
         }
     }
 
-    pub fn tick(&mut self, current_tick: u16, tempo: u16) -> f32 {
-        let mut delta_volume = 0.0;
-
+    pub fn tick(&mut self, current_tick: u16, tempo: u16) {
         self.envelopes();
         self.autovibrato();
 
@@ -517,22 +515,6 @@ impl Channel {
                     _ => {}
                 }
             }
-            17 if current_tick != 0 => {
-                /* Hxy: Global volume slide */
-                if (self.global_volume_slide_param & 0xF0 != 0)
-                    && (self.global_volume_slide_param & 0x0F != 0)
-                {
-                    /* Illegal state */
-                    return delta_volume;
-                }
-                if self.global_volume_slide_param & 0xF0 != 0 {
-                    /* Global slide up */
-                    delta_volume = (self.global_volume_slide_param >> 4) as f32 / 64.0;
-                } else {
-                    /* Global slide down */
-                    delta_volume = -((self.global_volume_slide_param & 0x0F) as f32) / 64.0;
-                }
-            }
             20 => {
                 /* Kxx: Key off */
                 /* Most documentations will tell you the parameter has no
@@ -602,8 +584,6 @@ impl Channel {
         self.actual_volume[0] = volume * (1.0 - panning).sqrt();
         self.actual_volume[1] = volume * panning.sqrt();
         // }
-
-        return delta_volume;
     }
 
     fn handle_note_and_instrument(&mut self) {
@@ -912,26 +892,17 @@ impl Channel {
                     _ => {}
                 }
             }
-            0x11 => {
-                /* Hxy: Global volume slide */
-                if self.current.effect_parameter > 0 {
-                    self.global_volume_slide_param = self.current.effect_parameter;
-                }
-            }
-            0x12..=0x14 => { /* Unused */ }
             0x15 => {
                 /* Lxx: Set envelope position */
                 self.state_envelope_volume.counter = self.current.effect_parameter as u16;
                 self.state_envelope_panning.counter = self.current.effect_parameter as u16;
             }
-            0x16..=0x18 => { /* Unused */ }
             0x19 => {
                 /* Pxy: Panning slide */
                 if self.current.effect_parameter > 0 {
                     self.panning_slide_param = self.current.effect_parameter;
                 }
             }
-            0x1A => { /* Unused */ }
             0x1B => {
                 /* Rxy: Multi retrig note */
                 if self.current.effect_parameter > 0 {
@@ -944,7 +915,6 @@ impl Channel {
                     }
                 }
             }
-            0x1C => { /* Unused */ }
             0x1D => {
                 /* Txy: Tremor */
                 if self.current.effect_parameter > 0 {
@@ -953,7 +923,6 @@ impl Channel {
                     self.tremor_param = self.current.effect_parameter;
                 }
             }
-            0x1E..=0x20 => { /* Unused */ }
             0x21 => {
                 /* Xxy: Extra stuff */
                 match self.current.effect_parameter >> 4 {

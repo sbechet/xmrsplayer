@@ -10,6 +10,7 @@ pub struct XmrsPlayer {
     tempo: u16,
     bpm: u16,
     global_volume: f32,
+    global_volume_slide_param: u8,
     /// Global amplification (default 1/4)
     pub amplification: f32,
 
@@ -53,6 +54,7 @@ impl XmrsPlayer {
             tempo: module.default_tempo,
             bpm: module.default_bpm,
             global_volume: 1.0,
+            global_volume_slide_param: 0,
             amplification: 0.25,
             // XXX volume_ramp: 1.0 / 128.0,
             current_table_index: 0,
@@ -217,6 +219,12 @@ impl XmrsPlayer {
                     ch.current.effect_parameter as f32 / 64.0
                 };
             }
+            0x11 => {
+                /* Hxy: Global volume slide */
+                if ch.current.effect_parameter > 0 {
+                    self.global_volume_slide_param = ch.current.effect_parameter;
+                }
+            }
             _ => {}
         }
     }
@@ -282,7 +290,25 @@ impl XmrsPlayer {
         }
 
         for ch in &mut self.channel {
-            self.global_volume += ch.tick(self.current_tick, self.tempo);
+            ch.tick(self.current_tick, self.tempo);
+
+            // Specific effect to slide global volume
+            if ch.current.effect_type == 17 && self.current_tick != 0 {
+                /* Hxy: Global volume slide */
+                self.global_volume += if (self.global_volume_slide_param & 0xF0 != 0)
+                    && (self.global_volume_slide_param & 0x0F != 0)
+                {
+                    /* Illegal state */
+                    0.0
+                }
+                else if self.global_volume_slide_param & 0xF0 != 0 {
+                    /* Global slide up */
+                    (self.global_volume_slide_param >> 4) as f32 / 64.0
+                } else {
+                    /* Global slide down */
+                    -((self.global_volume_slide_param & 0x0F) as f32) / 64.0
+                };
+            }
             clamp(&mut self.global_volume);
         }
 
