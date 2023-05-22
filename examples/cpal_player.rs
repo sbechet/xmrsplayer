@@ -79,7 +79,7 @@ fn main() -> Result<(), std::io::Error> {
 
 
 fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool) -> Arc<Mutex<XmrsPlayer>> {
-    let mut player = Arc::new(Mutex::new(XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32)));
+    let player = Arc::new(Mutex::new(XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32)));
 
     {
         let mut player_lock = player.lock().unwrap();
@@ -115,7 +115,7 @@ fn cpal_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8
         std::thread::sleep(std::time::Duration::from_secs(1));
         let t= player.lock().unwrap().get_current_pattern();
         println!("current pattern:{}", t);
-}
+    }
 
 }
 

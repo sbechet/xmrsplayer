@@ -1,27 +1,27 @@
-use xmrs::prelude::ModuleFlag;
+use xmrs::prelude::FrequencyType;
 
 pub const DEBUG: bool = false;
 pub const LINEAR_INTERPOLATION: bool = false;
 // pub const RAMPING: bool = false;
 pub const SAMPLE_RAMPING_POINTS: usize = 32;
 
-pub const AMIGA_FREQ_SCALE: usize = 1024;
+pub const AMIGA_PERIOD_SCALE: usize = 1024;
 
-pub static AMIGA_FREQUENCIES: [usize; 13] = [
-    1712 * AMIGA_FREQ_SCALE,
-    1616 * AMIGA_FREQ_SCALE,
-    1525 * AMIGA_FREQ_SCALE,
-    1440 * AMIGA_FREQ_SCALE, /* C-2, C#2, D-2, D#2 */
-    1357 * AMIGA_FREQ_SCALE,
-    1281 * AMIGA_FREQ_SCALE,
-    1209 * AMIGA_FREQ_SCALE,
-    1141 * AMIGA_FREQ_SCALE, /* E-2, F-2, F#2, G-2 */
-    1077 * AMIGA_FREQ_SCALE,
-    1016 * AMIGA_FREQ_SCALE,
-    961 * AMIGA_FREQ_SCALE,
-    907 * AMIGA_FREQ_SCALE, /* G#2, A-2, A#2, B-2 */
-    856 * AMIGA_FREQ_SCALE,
-]; /* C-3 */
+pub static AMIGA_PERIODS: [usize; 13] = [
+    1712 * AMIGA_PERIOD_SCALE, // C-2
+    1616 * AMIGA_PERIOD_SCALE, // C#2
+    1525 * AMIGA_PERIOD_SCALE, // D-2
+    1440 * AMIGA_PERIOD_SCALE, // D#2
+    1357 * AMIGA_PERIOD_SCALE, // E-2
+    1281 * AMIGA_PERIOD_SCALE, // F-2
+    1209 * AMIGA_PERIOD_SCALE, // F#2
+    1141 * AMIGA_PERIOD_SCALE, // G-2
+    1077 * AMIGA_PERIOD_SCALE, // G#2
+    1016 * AMIGA_PERIOD_SCALE, // A-2
+    961 * AMIGA_PERIOD_SCALE, // A#2
+    907 * AMIGA_PERIOD_SCALE, // B-2
+    856 * AMIGA_PERIOD_SCALE, // C-3
+];
 
 pub static MULTI_RETRIG_ADD: [f32; 16] = [
     0.0, -1.0, -2.0, -4.0, /* 0, 1, 2, 3 */
@@ -65,35 +65,35 @@ pub fn inverse_lerp(u: f32, v: f32, lerp: f32) -> f32 {
 }
 
 #[inline(always)]
-pub fn clamp_up_1f(vol: &mut f32, limit: f32) {
-    if *vol > limit {
-        *vol = limit;
+pub fn clamp_up_1f(value: &mut f32, limit: f32) {
+    if *value > limit {
+        *value = limit;
     }
 }
 
 #[inline(always)]
-pub fn clamp_up(vol: &mut f32) {
-    clamp_up_1f(vol, 1.0);
+pub fn clamp_up(value: &mut f32) {
+    clamp_up_1f(value, 1.0);
 }
 
 #[inline(always)]
-pub fn clamp_down_1f(vol: &mut f32, limit: f32) {
-    if *vol < limit {
-        *vol = limit;
+pub fn clamp_down_1f(value: &mut f32, limit: f32) {
+    if *value < limit {
+        *value = limit;
     }
 }
 
 #[inline(always)]
-pub fn clamp_down(vol: &mut f32) {
-    clamp_down_1f(vol, 0.0);
+pub fn clamp_down(value: &mut f32) {
+    clamp_down_1f(value, 0.0);
 }
 
 #[inline(always)]
-pub fn clamp(vol: &mut f32) {
-    if *vol > 1.0 {
-        *vol = 1.0;
-    } else if *vol < 0.0 {
-        *vol = 0.0;
+pub fn clamp(value: &mut f32) {
+    if *value > 1.0 {
+        *value = 1.0;
+    } else if *value < 0.0 {
+        *value = 0.0;
     }
 }
 
@@ -122,8 +122,8 @@ pub fn amiga_period(note: f32) -> f32 {
     let intnote = note as i32;
     let a = intnote % 12;
     let octave = intnote / 12 - 2;
-    let mut p1 = AMIGA_FREQUENCIES[a as usize];
-    let mut p2 = AMIGA_FREQUENCIES[(a + 1) as usize];
+    let mut p1 = AMIGA_PERIODS[a as usize];
+    let mut p2 = AMIGA_PERIODS[(a + 1) as usize];
 
     if octave > 0 {
         p1 >>= octave;
@@ -133,13 +133,13 @@ pub fn amiga_period(note: f32) -> f32 {
         p2 <<= -octave;
     }
 
-    lerp(p1 as f32, p2 as f32, note - intnote as f32) / AMIGA_FREQ_SCALE as f32
+    lerp(p1 as f32, p2 as f32, note - intnote as f32) / AMIGA_PERIOD_SCALE as f32
 }
 
-pub fn period(freq_type: ModuleFlag, note: f32) -> f32 {
+pub fn period(freq_type: FrequencyType, note: f32) -> f32 {
     match freq_type {
-        ModuleFlag::LinearFrequencies => linear_period(note),
-        ModuleFlag::AmigaFrequencies => amiga_period(note),
+        FrequencyType::LinearFrequencies => linear_period(note),
+        FrequencyType::AmigaFrequencies => amiga_period(note),
     }
 }
 
@@ -151,12 +151,12 @@ pub fn amiga_frequency(period: f32) -> f32 {
     }
 }
 
-pub fn frequency(freq_type: ModuleFlag, period: f32, note_offset: f32, period_offset: f32) -> f32 {
+pub fn frequency(freq_type: FrequencyType, period: f32, note_offset: f32, period_offset: f32) -> f32 {
     match freq_type {
-        ModuleFlag::LinearFrequencies => {
+        FrequencyType::LinearFrequencies => {
             linear_frequency(period - 64.0 * note_offset - 16.0 * period_offset)
         }
-        ModuleFlag::AmigaFrequencies => {
+        FrequencyType::AmigaFrequencies => {
             if note_offset == 0.0 {
                 /* A chance to escape from insanity */
                 return amiga_frequency(period + 16.0 * period_offset);
@@ -167,15 +167,15 @@ pub fn frequency(freq_type: ModuleFlag, period: f32, note_offset: f32, period_of
             let mut octave: i8 = 0;
 
             /* Find the octave of the current period */
-            let period = period * AMIGA_FREQ_SCALE as f32;
-            if period > AMIGA_FREQUENCIES[0] as f32 {
+            let period = period * AMIGA_PERIOD_SCALE as f32;
+            if period > AMIGA_PERIODS[0] as f32 {
                 octave -= 1;
-                while period > (AMIGA_FREQUENCIES[0] << -octave) as f32 {
+                while period > (AMIGA_PERIODS[0] << -octave) as f32 {
                     octave -= 1;
                 }
-            } else if period < AMIGA_FREQUENCIES[12] as f32 {
+            } else if period < AMIGA_PERIODS[12] as f32 {
                 octave += 1;
-                while period < (AMIGA_FREQUENCIES[12] >> octave) as f32 {
+                while period < (AMIGA_PERIODS[12] >> octave) as f32 {
                     octave += 1;
                 }
             }
@@ -183,8 +183,8 @@ pub fn frequency(freq_type: ModuleFlag, period: f32, note_offset: f32, period_of
             let mut p1 = 0;
             let mut p2 = 0;
             for i in 0..12 {
-                p1 = AMIGA_FREQUENCIES[i];
-                p2 = AMIGA_FREQUENCIES[i + 1];
+                p1 = AMIGA_PERIODS[i];
+                p2 = AMIGA_PERIODS[i + 1];
 
                 if octave > 0 {
                     p1 >>= octave;
