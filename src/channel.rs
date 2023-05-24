@@ -21,68 +21,67 @@ bitflags! {
 #[derive(Clone, Default)]
 pub struct Channel {
     pub module: Arc<Module>,
-    pub note: f32,
-    pub orig_note: f32, /* The original note before effect modifications, as read in the pattern. */
+    note: f32,
+    orig_note: f32, /* The original note before effect modifications, as read in the pattern. */
     pub instrnr: Option<usize>,
     pub sample: Option<usize>,
     pub state_sample: StateSample,
     pub current: PatternSlot,
 
-    pub period: f32,
-    pub frequency: f32,
+    period: f32,
+    frequency: f32,
 
-    pub volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
-    pub panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
+    volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
+    panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
 
     // Instrument Vibrato
-    pub state_vibrato: StateVibrato,
+    state_vibrato: StateVibrato,
 
     // Volume Envelope
-    pub state_envelope_volume: StateEnvelope,
-    pub envelope_sustained: bool,
-    pub state_envelope_volume_fadeout: f32,
+    state_envelope_volume: StateEnvelope,
+    envelope_sustained: bool,
+    state_envelope_volume_fadeout: f32,
 
     // Panning Envelope
-    pub state_envelope_panning: StateEnvelope,
+    state_envelope_panning: StateEnvelope,
 
-    pub arp_in_progress: bool,
-    pub arp_note_offset: u8,
+    arp_in_progress: bool,
+    arp_note_offset: u8,
 
-    pub volume_slide_param: u8,
-    pub fine_volume_slide_param: u8,
-    pub global_volume_slide_param: u8,
+    volume_slide_param: u8,
+    fine_volume_slide_param: u8,
 
-    pub panning_slide_param: u8,
+    panning_slide_param: u8,
 
-    pub portamento_up_param: u8,
-    pub portamento_down_param: u8,
-    pub fine_portamento_up_param: i8,
-    pub fine_portamento_down_param: i8,
-    pub extra_fine_portamento_up_param: i8,
-    pub extra_fine_portamento_down_param: i8,
+    portamento_up_param: u8,
+    portamento_down_param: u8,
+    fine_portamento_up_param: i8,
+    fine_portamento_down_param: i8,
+    extra_fine_portamento_up_param: i8,
+    extra_fine_portamento_down_param: i8,
 
-    pub tone_portamento_param: u8,
-    pub tone_portamento_target_period: f32,
-    pub multi_retrig_param: u8,
-    pub note_delay_param: u8,
+    tone_portamento_param: u8,
+    tone_portamento_target_period: f32,
+    multi_retrig_param: u8,
+    note_delay_param: u8,
     pub pattern_loop_origin: u8, /* Where to restart a E6y loop */
     pub pattern_loop_count: u8,  /* How many loop passes have been done */
 
-    pub vibrato_in_progress: bool,
-    pub vibrato_waveform: Waveform,
-    pub vibrato_waveform_retrigger: bool, /* True if a new note retriggers the waveform */
-    pub vibrato_param: u8,
-    pub vibrato_ticks: u16, /* Position in the waveform */
-    pub vibrato_note_offset: f32,
+    vibrato_in_progress: bool,
+    vibrato_waveform: Waveform,
+    vibrato_waveform_retrigger: bool, /* True if a new note retriggers the waveform */
+    vibrato_param: u8,
+    vibrato_ticks: u16, /* Position in the waveform */
+    vibrato_note_offset: f32,
 
-    pub tremolo_waveform: Waveform,
-    pub tremolo_waveform_retrigger: bool,
-    pub tremolo_param: u8,
-    pub tremolo_ticks: u16,
-    pub tremolo_volume: f32,
+    tremolo_waveform: Waveform,
+    tremolo_waveform_retrigger: bool,
+    tremolo_param: u8,
+    tremolo_ticks: u16,
+    tremolo_volume: f32,
 
-    pub tremor_param: u8,
-    pub tremor_on: bool,
+    tremor_param: u8,
+    tremor_on: bool,
 
     pub muted: bool,
 
@@ -91,12 +90,12 @@ pub struct Channel {
     // RAMPING START
     /* These values are updated at the end of each tick, to save
      * a couple of float operations on every generated sample. */
-    // pub target_volume: [f32; 2],
-    // pub frame_count: usize,
-    // pub end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
+    // target_volume: [f32; 2],
+    // frame_count: usize,
+    // end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
     // RAMPING END
-    pub freq_type: FrequencyType,
-    pub rate: f32,
+    freq_type: FrequencyType,
+    rate: f32,
 }
 
 impl Channel {
@@ -117,12 +116,12 @@ impl Channel {
         }
     }
 
-    pub fn cut_note(&mut self) {
+    fn cut_note(&mut self) {
         /* NB: this is not the same as Key Off */
         self.volume = 0.0;
     }
 
-    pub fn key_off(&mut self) {
+    fn key_off(&mut self) {
         /* Key Off */
         self.envelope_sustained = false;
 
@@ -144,7 +143,7 @@ impl Channel {
         }
     }
 
-    pub fn autovibrato(&mut self) {
+    fn autovibrato(&mut self) {
         if self.instrnr.is_some() {
             let chinstr = &self.module.instrument[self.instrnr.unwrap()].instr_type;
             match chinstr {
@@ -159,7 +158,7 @@ impl Channel {
         self.update_frequency();
     }
 
-    pub fn vibrato(&mut self) {
+    fn vibrato(&mut self) {
         self.vibrato_ticks = (self.vibrato_ticks + (self.vibrato_param as u16 >> 4)) & 63;
         self.vibrato_note_offset = -2.0
             * self.vibrato_waveform.waveform(self.vibrato_ticks)
@@ -168,7 +167,7 @@ impl Channel {
         self.update_frequency();
     }
 
-    pub fn tremolo(&mut self) {
+    fn tremolo(&mut self) {
         let step = (self.tremolo_ticks * (self.tremolo_param as u16 >> 4)) & 63;
         /* Not so sure about this, it sounds correct by ear compared with
          * MilkyTracker, but it could come from other bugs */
@@ -177,7 +176,7 @@ impl Channel {
         self.tremolo_ticks = (self.tremolo_ticks + 1) & 63;
     }
 
-    pub fn arpeggio(&mut self, current_tick: u16, tempo: u16, param: u8) {
+    fn arpeggio(&mut self, current_tick: u16, tempo: u16, param: u8) {
         let arp_offset = tempo % 3;
         match current_tick {
             1 if arp_offset == 2 => {
@@ -214,7 +213,7 @@ impl Channel {
         }
     }
 
-    pub fn tone_portamento(&mut self) {
+    fn tone_portamento(&mut self) {
         /* 3xx called without a note, wait until we get an actual
          * target note. */
         if self.tone_portamento_target_period == 0.0 {
@@ -235,7 +234,7 @@ impl Channel {
         }
     }
 
-    pub fn panning_slide(&mut self, rawval: u8) {
+    fn panning_slide(&mut self, rawval: u8) {
         if (rawval & 0xF0 != 0) && (rawval & 0x0F != 0) {
             /* Illegal state */
             return;
@@ -253,7 +252,7 @@ impl Channel {
         }
     }
 
-    pub fn volume_slide(&mut self, rawval: u8) {
+    fn volume_slide(&mut self, rawval: u8) {
         if (rawval & 0xF0 != 0) && (rawval & 0x0F != 0) {
             /* Illegal state */
             return;
@@ -271,7 +270,7 @@ impl Channel {
         }
     }
 
-    pub fn envelopes(&mut self) {
+    fn envelopes(&mut self) {
         if let Some(instr) = self.instrnr {
             match &self.module.instrument[instr].instr_type {
                 InstrumentType::Default(instrument) => {
@@ -315,7 +314,7 @@ impl Channel {
         }
     }
 
-    pub fn update_frequency(&mut self) {
+    fn update_frequency(&mut self) {
         self.frequency = frequency(
             self.freq_type,
             self.period,
@@ -325,7 +324,7 @@ impl Channel {
         self.state_sample.set_step(self.frequency, self.rate);
     }
 
-    pub fn pitch_slide(&mut self, period_offset: i8) {
+    fn pitch_slide(&mut self, period_offset: i8) {
         /* Don't ask about the 0.4 coefficient. I found mention of it
          * nowhere. Found by ear™. */
         self.period += if let FrequencyType::LinearFrequencies = self.freq_type {
