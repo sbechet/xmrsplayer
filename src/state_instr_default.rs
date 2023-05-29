@@ -126,7 +126,7 @@ impl StateInstrDefault {
                     period_offset + self.state_vibrato.value,
                 );
                 s.set_step(frequency)
-            },
+            }
             None => {}
         }
     }

@@ -138,8 +138,7 @@ impl Channel {
         let step = (self.tremolo_counter * self.tremolo_speed) & 63;
         /* Not so sure about this, it sounds correct by ear compared with
          * MilkyTracker, but it could come from other bugs */
-        self.tremolo_volume =
-            -1.0 * self.tremolo_waveform.waveform(step) * self.tremolo_depth;
+        self.tremolo_volume = -1.0 * self.tremolo_waveform.waveform(step) * self.tremolo_depth;
         self.tremolo_counter = (self.tremolo_counter + 1) & 63;
     }
 
@@ -271,9 +270,12 @@ impl Channel {
 
                 if !flags.contains(TriggerKeep::PERIOD) {
                     self.period = period(self.freq_type, self.note);
-                    instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset);
+                    instr.update_frequency(
+                        self.period,
+                        self.arp_note_offset as f32,
+                        self.vibrato_note_offset,
+                    );
                 }
-                        
             }
             None => {}
         }
@@ -290,7 +292,6 @@ impl Channel {
         if self.tremolo_waveform_retrigger {
             self.tremolo_counter = 0;
         }
-
     }
 
     fn tick_effects(&mut self, current_tick: u16, tempo: u16) {
@@ -509,7 +510,11 @@ impl Channel {
                 self.actual_volume[1] = volume * panning.sqrt();
                 // }
 
-                instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset);
+                instr.update_frequency(
+                    self.period,
+                    self.arp_note_offset as f32,
+                    self.vibrato_note_offset,
+                );
             }
             None => {}
         }
@@ -874,7 +879,6 @@ impl Channel {
 
         // Effects
         self.tick0_effects(noteu8);
-
     }
 
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
@@ -883,8 +887,12 @@ impl Channel {
         if self.current.effect_type != 0xE || (self.current.effect_parameter >> 4) != 0xD {
             self.tick0_load_note_and_instrument();
             match &mut self.instr {
-                Some(instr) => instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset),
-                None => {},
+                Some(instr) => instr.update_frequency(
+                    self.period,
+                    self.arp_note_offset as f32,
+                    self.vibrato_note_offset,
+                ),
+                None => {}
             }
         } else {
             self.note_delay_param = self.current.effect_parameter & 0x0F;
