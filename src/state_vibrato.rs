@@ -1,4 +1,3 @@
-use crate::helper::*;
 /// An Instrument Vibrato State
 use std::ops::Deref;
 use std::sync::Arc;

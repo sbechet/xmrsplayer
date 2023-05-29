@@ -28,7 +28,6 @@ pub struct Channel {
     pub current: PatternSlot,
 
     period: f32,
-    frequency: f32,
 
     volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
     panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
@@ -242,13 +241,13 @@ impl Channel {
     fn update_frequency(&mut self) {
         match &mut self.instr {
             Some(i) => {
-                self.frequency = frequency(
+                let frequency = frequency(
                     self.freq_type,
                     self.period,
                     self.arp_note_offset as f32,
                     self.vibrato_note_offset + i.state_vibrato.value,
                 );
-                i.update_frequency(self.frequency);
+                i.update_frequency(frequency);
             }
             None => {}
         }
@@ -332,18 +331,15 @@ impl Channel {
             None => return,
         }
 
-        self.update_frequency();
-
         if self.arp_in_progress && !self.current.has_arpeggio() {
             self.arp_in_progress = false;
             self.arp_note_offset = 0;
-            self.update_frequency();
         }
         if self.vibrato_in_progress && !self.current.has_vibrato() {
             self.vibrato_in_progress = false;
             self.vibrato_note_offset = 0.0;
-            self.update_frequency();
         }
+        self.update_frequency();
 
         if current_tick != 0 {
             match self.current.volume >> 4 {
