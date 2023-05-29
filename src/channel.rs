@@ -132,7 +132,6 @@ impl Channel {
         self.vibrato_step = (self.vibrato_step + self.vibrato_speed) & 63;
         self.vibrato_note_offset =
             -2.0 * self.vibrato_waveform.waveform(self.vibrato_step) * self.vibrato_depth;
-        self.update_frequency();
     }
 
     fn tremolo(&mut self) {
@@ -151,13 +150,11 @@ impl Channel {
                 /* arp_offset==2: 0 -> x -> 0 -> y -> x -> … */
                 self.arp_in_progress = true;
                 self.arp_note_offset = param >> 4;
-                self.update_frequency();
             }
             0 if arp_offset >= 1 => {
                 /* arp_offset==1: 0 -> 0 -> y -> x -> … */
                 self.arp_in_progress = false;
                 self.arp_note_offset = 0;
-                self.update_frequency();
             }
             _ => {
                 /* 0 -> y -> x -> … */
@@ -198,7 +195,6 @@ impl Channel {
                 self.tone_portamento_target_period,
                 incr * self.tone_portamento_param as f32,
             );
-            self.update_frequency();
         }
     }
 
@@ -238,21 +234,6 @@ impl Channel {
         }
     }
 
-    fn update_frequency(&mut self) {
-        match &mut self.instr {
-            Some(i) => {
-                let frequency = frequency(
-                    self.freq_type,
-                    self.period,
-                    self.arp_note_offset as f32,
-                    self.vibrato_note_offset + i.state_vibrato.value,
-                );
-                i.update_frequency(frequency);
-            }
-            None => {}
-        }
-    }
-
     fn pitch_slide(&mut self, period_offset: i8) {
         /* Don't ask about the 0.4 coefficient. I found mention of it
          * nowhere. Found by ear™. */
@@ -263,24 +244,22 @@ impl Channel {
         };
         clamp_down(&mut self.period);
         /* XXX: upper bound of period ? */
-
-        self.update_frequency();
     }
 
     pub fn trigger_note(&mut self, flags: TriggerKeep) {
         match &mut self.instr {
-            Some(i) => {
+            Some(instr) => {
                 if !flags.contains(TriggerKeep::SAMPLE_POSITION) {
-                    i.sample_reset();
+                    instr.sample_reset();
                 }
 
                 if !flags.contains(TriggerKeep::ENVELOPE) {
-                    i.envelopes_reset();
+                    instr.envelopes_reset();
                 }
 
-                i.vibrato_reset();
+                instr.vibrato_reset();
 
-                match &i.state_sample {
+                match &instr.state_sample {
                     Some(s) => {
                         if !flags.contains(TriggerKeep::VOLUME) {
                             self.volume = s.sample.volume;
@@ -289,6 +268,12 @@ impl Channel {
                     }
                     None => {}
                 }
+
+                if !flags.contains(TriggerKeep::PERIOD) {
+                    self.period = period(self.freq_type, self.note);
+                    instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset);
+                }
+                        
             }
             None => {}
         }
@@ -306,72 +291,9 @@ impl Channel {
             self.tremolo_counter = 0;
         }
 
-        if !flags.contains(TriggerKeep::PERIOD) {
-            self.period = period(self.freq_type, self.note);
-            self.update_frequency();
-        }
     }
 
-    pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
-        self.current = pattern_slot.clone();
-
-        if self.current.effect_type != 0xE || (self.current.effect_parameter >> 4) != 0xD {
-            self.handle_note_and_instrument();
-        } else {
-            self.note_delay_param = self.current.effect_parameter & 0x0F;
-        }
-    }
-
-    pub fn tick(&mut self, current_tick: u16, tempo: u16) {
-        match &mut self.instr {
-            Some(instr) => {
-                instr.envelopes();
-                instr.state_vibrato.tick();
-            }
-            None => return,
-        }
-
-        if self.arp_in_progress && !self.current.has_arpeggio() {
-            self.arp_in_progress = false;
-            self.arp_note_offset = 0;
-        }
-        if self.vibrato_in_progress && !self.current.has_vibrato() {
-            self.vibrato_in_progress = false;
-            self.vibrato_note_offset = 0.0;
-        }
-        self.update_frequency();
-
-        if current_tick != 0 {
-            match self.current.volume >> 4 {
-                0x6 => {
-                    /* Volume slide down */
-                    self.volume_slide(self.current.volume & 0x0F);
-                }
-                0x7 => {
-                    /* Volume slide up */
-                    self.volume_slide(self.current.volume << 4);
-                }
-                0xB => {
-                    /* Vibrato */
-                    self.vibrato_in_progress = false;
-                    self.vibrato();
-                }
-                0xD => {
-                    /* Panning slide left */
-                    self.panning_slide(self.current.volume & 0x0F);
-                }
-                0xE => {
-                    /* Panning slide right */
-                    self.panning_slide(self.current.volume << 4);
-                }
-                0xF => {
-                    /* Tone portamento */
-                    self.tone_portamento();
-                }
-                _ => {}
-            }
-        }
-
+    fn tick_effects(&mut self, current_tick: u16, tempo: u16) {
         match self.current.effect_type {
             0 => {
                 /* 0xy: Arpeggio */
@@ -447,7 +369,7 @@ impl Channel {
                     0xD => {
                         /* EDy: Note delay */
                         if self.note_delay_param as u16 == current_tick {
-                            self.handle_note_and_instrument();
+                            self.tick0_load_note_and_instrument();
                             match &mut self.instr {
                                 Some(instr) => {
                                     instr.envelopes();
@@ -506,8 +428,64 @@ impl Channel {
             }
             _ => {}
         }
+    }
 
-        match &self.instr {
+    fn tick_volume_effects(&mut self) {
+        match self.current.volume >> 4 {
+            0x6 => {
+                /* Volume slide down */
+                self.volume_slide(self.current.volume & 0x0F);
+            }
+            0x7 => {
+                /* Volume slide up */
+                self.volume_slide(self.current.volume << 4);
+            }
+            0xB => {
+                /* Vibrato */
+                self.vibrato_in_progress = false;
+                self.vibrato();
+            }
+            0xD => {
+                /* Panning slide left */
+                self.panning_slide(self.current.volume & 0x0F);
+            }
+            0xE => {
+                /* Panning slide right */
+                self.panning_slide(self.current.volume << 4);
+            }
+            0xF => {
+                /* Tone portamento */
+                self.tone_portamento();
+            }
+            _ => {}
+        }
+    }
+
+    pub fn tick(&mut self, current_tick: u16, tempo: u16) {
+        match &mut self.instr {
+            Some(instr) => {
+                instr.envelopes();
+                instr.state_vibrato.tick();
+            }
+            None => return,
+        }
+
+        if self.arp_in_progress && !self.current.has_arpeggio() {
+            self.arp_in_progress = false;
+            self.arp_note_offset = 0;
+        }
+        if self.vibrato_in_progress && !self.current.has_vibrato() {
+            self.vibrato_in_progress = false;
+            self.vibrato_note_offset = 0.0;
+        }
+
+        if current_tick != 0 {
+            self.tick_volume_effects();
+        }
+
+        self.tick_effects(current_tick, tempo);
+
+        match &mut self.instr {
             Some(instr) => {
                 let panning: f32 = self.panning
                     + (instr.envelope_panning.value - 0.5)
@@ -530,119 +508,14 @@ impl Channel {
                 self.actual_volume[0] = volume * (1.0 - panning).sqrt();
                 self.actual_volume[1] = volume * panning.sqrt();
                 // }
+
+                instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset);
             }
             None => {}
         }
     }
 
-    fn handle_note_and_instrument(&mut self) {
-        let noteu8: u8 = self.current.note.into();
-
-        // First, load instr
-        if self.current.instrument > 0 {
-            if self.current.has_tone_portamento() {
-                /* Tone portamento in effect, unclear stuff happens */
-                self.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
-            } else if let Note::None = self.current.note {
-                /* Ghost instrument, trigger note */
-                /* Sample position is kept, but envelopes are reset */
-                self.trigger_note(TriggerKeep::SAMPLE_POSITION);
-            } else if self.current.instrument as usize > self.module.instrument.len() {
-                /* Invalid instrument, Cut current note */
-                self.cut_note();
-                self.instr = None;
-            } else {
-                let instrnr = self.current.instrument as usize - 1;
-                if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
-                    // only good instr
-                    if id.sample.len() != 0 {
-                        let instr = StateInstrDefault::new(id.clone(), self.freq_type, self.rate);
-                        self.instr = Some(instr);
-                    }
-                } else {
-                    // TODO
-                }
-            }
-        }
-
-        // Next, choose sample from note
-        if note_is_valid(noteu8) {
-            match &mut self.instr {
-                Some(i) => {
-                    if self.current.has_tone_portamento() {
-                        match &i.state_sample {
-                            Some(s) => {
-                                if s.is_enabled() {
-                                    self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
-                                    self.tone_portamento_target_period =
-                                        period(self.module.frequency_type, self.note);
-                                } else {
-                                    self.cut_note();
-                                }
-                            }
-                            None => self.cut_note(),
-                        }
-                    } else if i.set_note(self.current.note) {
-                        if let Some(s) = &i.state_sample {
-                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
-                            self.note = self.orig_note;
-                        }
-
-                        if self.current.instrument > 0 {
-                            self.trigger_note(TriggerKeep::NONE);
-                        } else {
-                            /* Ghost note: keep old volume */
-                            self.trigger_note(TriggerKeep::VOLUME);
-                        }
-                    } else {
-                        self.cut_note();
-                    }
-                }
-                None => self.cut_note(),
-            }
-        } else if let Note::KeyOff = self.current.note {
-            self.key_off();
-        }
-
-        match self.current.volume >> 4 {
-            0x0 => {} // Nothing
-            // V - Set volume (0..63)
-            0x1..=0x4 => self.volume = (self.current.volume - 0x10) as f32 / 64.0,
-            // V - 0x51..0x5F undefined...
-            0x5 => self.volume = 1.0,
-            // D - Volume slide down (0..15)
-            0x6 => {} // see tick() fn
-            // C - Volume slide up (0..15)
-            0x7 => {} // see tick() fn
-            // B - Fine volume down (0..15)
-            0x8 => self.volume_slide(self.current.volume & 0x0F),
-            // A - Fine volume up (0..15)
-            0x9 => self.volume_slide(self.current.volume << 4),
-            // U - Vibrato speed (0..15)
-            0xA => self.vibrato_speed = self.current.volume as u16 & 0x0F,
-            // H - Vibrato depth (0..15)
-            0xB => {} // see tick() fn
-            // P - Set panning (2,6,10,14..62)
-            0xC => {
-                self.panning = (((self.current.volume & 0x0F) << 4) | (self.current.volume & 0x0F))
-                    as f32
-                    / 255.0
-            }
-            // L - Pan slide left (0..15)
-            0xD => {} // see tick() fn
-            // R - Pan slide right (0..15)
-            0xE => {} // see tick() fn
-            // G - Tone portamento (0..15)
-            0xF => {
-                if self.current.volume & 0x0F != 0 {
-                    self.tone_portamento_param =
-                        ((self.current.volume & 0x0F) << 4) | (self.current.volume & 0x0F);
-                }
-                // see also tick() fn
-            }
-            _ => {}
-        }
-
+    fn tick0_effects(&mut self, noteu8: u8) {
         match self.current.effect_type {
             0x1 => {
                 /* 1xx: Portamento up */
@@ -772,7 +645,6 @@ impl Channel {
                                                 as f32
                                                 / 128.0;
                                         self.period = period(self.module.frequency_type, self.note);
-                                        self.update_frequency();
                                     }
                                     None => {}
                                 },
@@ -884,6 +756,138 @@ impl Channel {
                 }
             }
             _ => {}
+        }
+    }
+
+    fn tick0_volume_effects(&mut self) {
+        match self.current.volume >> 4 {
+            0x0 => {} // Nothing
+            // V - Set volume (0..63)
+            0x1..=0x4 => self.volume = (self.current.volume - 0x10) as f32 / 64.0,
+            // V - 0x51..0x5F undefined...
+            0x5 => self.volume = 1.0,
+            // D - Volume slide down (0..15)
+            0x6 => {} // see tick() fn
+            // C - Volume slide up (0..15)
+            0x7 => {} // see tick() fn
+            // B - Fine volume down (0..15)
+            0x8 => self.volume_slide(self.current.volume & 0x0F),
+            // A - Fine volume up (0..15)
+            0x9 => self.volume_slide(self.current.volume << 4),
+            // U - Vibrato speed (0..15)
+            0xA => self.vibrato_speed = self.current.volume as u16 & 0x0F,
+            // H - Vibrato depth (0..15)
+            0xB => {} // see tick() fn
+            // P - Set panning (2,6,10,14..62)
+            0xC => {
+                self.panning = (((self.current.volume & 0x0F) << 4) | (self.current.volume & 0x0F))
+                    as f32
+                    / 255.0
+            }
+            // L - Pan slide left (0..15)
+            0xD => {} // see tick() fn
+            // R - Pan slide right (0..15)
+            0xE => {} // see tick() fn
+            // G - Tone portamento (0..15)
+            0xF => {
+                if self.current.volume & 0x0F != 0 {
+                    self.tone_portamento_param =
+                        ((self.current.volume & 0x0F) << 4) | (self.current.volume & 0x0F);
+                }
+                // see also tick() fn
+            }
+            _ => {}
+        }
+    }
+
+    fn tick0_load_note_and_instrument(&mut self) {
+        let noteu8: u8 = self.current.note.into();
+
+        // First, load instr
+        if self.current.instrument > 0 {
+            if self.current.has_tone_portamento() {
+                /* Tone portamento in effect, unclear stuff happens */
+                self.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
+            } else if let Note::None = self.current.note {
+                /* Ghost instrument, trigger note */
+                /* Sample position is kept, but envelopes are reset */
+                self.trigger_note(TriggerKeep::SAMPLE_POSITION);
+            } else if self.current.instrument as usize > self.module.instrument.len() {
+                /* Invalid instrument, Cut current note */
+                self.cut_note();
+                self.instr = None;
+            } else {
+                let instrnr = self.current.instrument as usize - 1;
+                if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
+                    // only good instr
+                    if id.sample.len() != 0 {
+                        let instr = StateInstrDefault::new(id.clone(), self.freq_type, self.rate);
+                        self.instr = Some(instr);
+                    }
+                } else {
+                    // TODO
+                }
+            }
+        }
+
+        // Next, choose sample from note
+        if note_is_valid(noteu8) {
+            match &mut self.instr {
+                Some(i) => {
+                    if self.current.has_tone_portamento() {
+                        match &i.state_sample {
+                            Some(s) => {
+                                if s.is_enabled() {
+                                    self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
+                                    self.tone_portamento_target_period =
+                                        period(self.module.frequency_type, self.note);
+                                } else {
+                                    self.cut_note();
+                                }
+                            }
+                            None => self.cut_note(),
+                        }
+                    } else if i.set_note(self.current.note) {
+                        if let Some(s) = &i.state_sample {
+                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
+                            self.note = self.orig_note;
+                        }
+
+                        if self.current.instrument > 0 {
+                            self.trigger_note(TriggerKeep::NONE);
+                        } else {
+                            /* Ghost note: keep old volume */
+                            self.trigger_note(TriggerKeep::VOLUME);
+                        }
+                    } else {
+                        self.cut_note();
+                    }
+                }
+                None => self.cut_note(),
+            }
+        } else if let Note::KeyOff = self.current.note {
+            self.key_off();
+        }
+
+        // Volume effect
+        self.tick0_volume_effects();
+
+        // Effects
+        self.tick0_effects(noteu8);
+
+    }
+
+    pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
+        self.current = pattern_slot.clone();
+
+        if self.current.effect_type != 0xE || (self.current.effect_parameter >> 4) != 0xD {
+            self.tick0_load_note_and_instrument();
+            match &mut self.instr {
+                Some(instr) => instr.update_frequency(self.period, self.arp_note_offset as f32, self.vibrato_note_offset),
+                None => {},
+            }
+        } else {
+            self.note_delay_param = self.current.effect_parameter & 0x0F;
         }
     }
 }

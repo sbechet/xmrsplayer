@@ -116,9 +116,17 @@ impl StateInstrDefault {
         }
     }
 
-    pub fn update_frequency(&mut self, frequency: f32) {
+    pub fn update_frequency(&mut self, period: f32, note_offset: f32, period_offset: f32) {
         match &mut self.state_sample {
-            Some(s) => s.set_step(frequency),
+            Some(s) => {
+                let frequency = frequency(
+                    self.freq_type,
+                    period,
+                    note_offset,
+                    period_offset + self.state_vibrato.value,
+                );
+                s.set_step(frequency)
+            },
             None => {}
         }
     }
