@@ -1,7 +1,8 @@
 XMrsPlayer is a portage of libxm in Rust language to play real music 
 
-the original [code](https://github.com/Artefact2/libxm) uses the WTFPL Version2 license.
-[XMrsPlayer](https://github.com/sbechet/xmrsplayer) uses the MIT License with consent from the Romain Dal Maso original author.
+the original [code](https://github.com/Artefact2/libxm) uses the WTFPL Version2 license. [XMrsPlayer](https://github.com/sbechet/xmrsplayer) uses the MIT License with consent from the Romain Dal Maso original author. The code was initially a simple port of libxm. It's very different today, with rustification as complete as possible.
+
+Help welcome.
 
 # Example?
 

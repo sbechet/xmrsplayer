@@ -2,9 +2,7 @@ use bitflags::bitflags;
 use std::sync::Arc;
 
 use crate::helper::*;
-use crate::state_envelope::StateEnvelope;
-use crate::state_sample::StateSample;
-use crate::state_vibrato::StateVibrato;
+use crate::state_instr_default::StateInstrDefault;
 use xmrs::prelude::*;
 
 bitflags! {
@@ -20,12 +18,13 @@ bitflags! {
 
 #[derive(Clone, Default)]
 pub struct Channel {
-    pub module: Arc<Module>,
+    module: Arc<Module>,
+    freq_type: FrequencyType,
+    rate: f32,
+
     note: f32,
     orig_note: f32, /* The original note before effect modifications, as read in the pattern. */
-    pub instrnr: Option<usize>,
-    pub sample: Option<usize>,
-    pub state_sample: StateSample,
+
     pub current: PatternSlot,
 
     period: f32,
@@ -34,16 +33,8 @@ pub struct Channel {
     volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
     panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
 
-    // Instrument Vibrato
-    state_vibrato: StateVibrato,
-
-    // Volume Envelope
-    state_envelope_volume: StateEnvelope,
-    envelope_sustained: bool,
-    state_envelope_volume_fadeout: f32,
-
-    // Panning Envelope
-    state_envelope_panning: StateEnvelope,
+    // Instrument
+    instr: Option<StateInstrDefault>,
 
     arp_in_progress: bool,
     arp_note_offset: u8,
@@ -64,20 +55,26 @@ pub struct Channel {
     tone_portamento_target_period: f32,
     multi_retrig_param: u8,
     note_delay_param: u8,
-    pub pattern_loop_origin: u8, /* Where to restart a E6y loop */
-    pub pattern_loop_count: u8,  /* How many loop passes have been done */
+    /// Where to restart a E6y loop
+    pub pattern_loop_origin: u8,
+    /// How many loop passes have been done
+    pub pattern_loop_count: u8,
 
     vibrato_in_progress: bool,
+    /// True if a new note retriggers the waveform
+    vibrato_waveform_retrigger: bool,
     vibrato_waveform: Waveform,
-    vibrato_waveform_retrigger: bool, /* True if a new note retriggers the waveform */
-    vibrato_param: u8,
-    vibrato_ticks: u16, /* Position in the waveform */
+    vibrato_depth: f32,
+    vibrato_speed: u16,
+    /// Position in the waveform
+    vibrato_step: u16,
     vibrato_note_offset: f32,
 
-    tremolo_waveform: Waveform,
     tremolo_waveform_retrigger: bool,
-    tremolo_param: u8,
-    tremolo_ticks: u16,
+    tremolo_waveform: Waveform,
+    tremolo_depth: f32,
+    tremolo_speed: u16,
+    tremolo_counter: u16,
     tremolo_volume: f32,
 
     tremor_param: u8,
@@ -86,7 +83,6 @@ pub struct Channel {
     pub muted: bool,
 
     pub actual_volume: [f32; 2],
-
     // RAMPING START
     /* These values are updated at the end of each tick, to save
      * a couple of float operations on every generated sample. */
@@ -94,26 +90,29 @@ pub struct Channel {
     // frame_count: usize,
     // end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
     // RAMPING END
-    freq_type: FrequencyType,
-    rate: f32,
 }
 
 impl Channel {
     pub fn new(module: Arc<Module>, freq_type: FrequencyType, rate: f32) -> Self {
         Self {
             module,
+            freq_type,
+            rate,
             vibrato_waveform_retrigger: true,
             tremolo_waveform_retrigger: true,
             volume: 1.0,
-            state_envelope_volume: StateEnvelope::new(1.0),
-            envelope_sustained: true,
-            state_envelope_volume_fadeout: 1.0,
-            state_envelope_panning: StateEnvelope::new(0.5),
             panning: 0.5,
-            freq_type,
-            rate,
             ..Default::default()
         }
+    }
+
+    pub fn is_muted(&self) -> bool {
+        let midi_mute = if let Some(i) = &self.instr {
+            i.midi_mute_computer
+        } else {
+            false
+        };
+        self.muted || midi_mute
     }
 
     fn cut_note(&mut self) {
@@ -122,58 +121,28 @@ impl Channel {
     }
 
     fn key_off(&mut self) {
-        /* Key Off */
-        self.envelope_sustained = false;
-
-        /* If no volume envelope is used, also cut the note */
-        if self.instrnr.is_none() {
-            self.cut_note();
-        } else {
-            match &self.module.instrument[self.instrnr.unwrap()].instr_type {
-                InstrumentType::Default(instr) => {
-                    if !instr.volume_envelope.enabled {
-                        self.cut_note();
-                    }
-                }
-                _ => {
-                    println!("XXX last case");
-                    self.cut_note();
-                } // TODO
+        match &mut self.instr {
+            Some(i) => {
+                i.key_off();
             }
+            None => self.cut_note(),
         }
-    }
-
-    fn autovibrato(&mut self) {
-        if self.instrnr.is_some() {
-            let chinstr = &self.module.instrument[self.instrnr.unwrap()].instr_type;
-            match chinstr {
-                InstrumentType::Default(instr) => {
-                    self.state_vibrato.tick(instr);
-                }
-                _ => {} // TODO
-            }
-        } else {
-            self.state_vibrato.value = 0.0;
-        }
-        self.update_frequency();
     }
 
     fn vibrato(&mut self) {
-        self.vibrato_ticks = (self.vibrato_ticks + (self.vibrato_param as u16 >> 4)) & 63;
-        self.vibrato_note_offset = -2.0
-            * self.vibrato_waveform.waveform(self.vibrato_ticks)
-            * (self.vibrato_param & 0x0F) as f32
-            / 15.0;
+        self.vibrato_step = (self.vibrato_step + self.vibrato_speed) & 63;
+        self.vibrato_note_offset =
+            -2.0 * self.vibrato_waveform.waveform(self.vibrato_step) * self.vibrato_depth;
         self.update_frequency();
     }
 
     fn tremolo(&mut self) {
-        let step = (self.tremolo_ticks * (self.tremolo_param as u16 >> 4)) & 63;
+        let step = (self.tremolo_counter * self.tremolo_speed) & 63;
         /* Not so sure about this, it sounds correct by ear compared with
          * MilkyTracker, but it could come from other bugs */
         self.tremolo_volume =
-            -1.0 * self.tremolo_waveform.waveform(step) * (self.tremolo_param & 0x0F) as f32 / 15.0;
-        self.tremolo_ticks = (self.tremolo_ticks + 1) & 63;
+            -1.0 * self.tremolo_waveform.waveform(step) * self.tremolo_depth;
+        self.tremolo_counter = (self.tremolo_counter + 1) & 63;
     }
 
     fn arpeggio(&mut self, current_tick: u16, tempo: u16, param: u8) {
@@ -270,58 +239,19 @@ impl Channel {
         }
     }
 
-    fn envelopes(&mut self) {
-        if let Some(instr) = self.instrnr {
-            match &self.module.instrument[instr].instr_type {
-                InstrumentType::Default(instrument) => {
-                    if instrument.volume_envelope.enabled {
-                        if !self.envelope_sustained {
-                            self.state_envelope_volume_fadeout -= instrument.volume_fadeout;
-                            clamp_down(&mut self.state_envelope_volume_fadeout);
-                        }
-                        self.state_envelope_volume
-                            .tick(&instrument.volume_envelope, self.envelope_sustained);
-                    }
-                    if instrument.panning_envelope.enabled {
-                        self.state_envelope_panning
-                            .tick(&instrument.panning_envelope, self.envelope_sustained);
-                    }
-                }
-                _ => {} // TODO
-            }
-        }
-    }
-
-    pub fn next_of_sample(&mut self) -> f32 {
-        if self.instrnr.is_none() || self.sample.is_none() || !self.state_sample.is_enabled() {
-            // if RAMPING {
-            //     if self.frame_count < SAMPLE_RAMPING_POINTS {
-            //         return lerp(
-            //             self.end_of_previous_sample[self.frame_count],
-            //             0.0,
-            //             self.frame_count as f32 / SAMPLE_RAMPING_POINTS as f32,
-            //         );
-            //     }
-            // }
-            return 0.0;
-        }
-
-        match &self.module.instrument[self.instrnr.unwrap()].instr_type {
-            InstrumentType::Default(instr) => {
-                self.state_sample.tick(&instr.sample[self.sample.unwrap()])
-            }
-            _ => 0.0,
-        }
-    }
-
     fn update_frequency(&mut self) {
-        self.frequency = frequency(
-            self.freq_type,
-            self.period,
-            self.arp_note_offset as f32,
-            self.vibrato_note_offset + self.state_vibrato.value,
-        );
-        self.state_sample.set_step(self.frequency, self.rate);
+        match &mut self.instr {
+            Some(i) => {
+                self.frequency = frequency(
+                    self.freq_type,
+                    self.period,
+                    self.arp_note_offset as f32,
+                    self.vibrato_note_offset + i.state_vibrato.value,
+                );
+                i.update_frequency(self.frequency);
+            }
+            None => {}
+        }
     }
 
     fn pitch_slide(&mut self, period_offset: i8) {
@@ -339,44 +269,42 @@ impl Channel {
     }
 
     pub fn trigger_note(&mut self, flags: TriggerKeep) {
-        if !flags.contains(TriggerKeep::SAMPLE_POSITION) {
-            self.state_sample.reset();
-        }
+        match &mut self.instr {
+            Some(i) => {
+                if !flags.contains(TriggerKeep::SAMPLE_POSITION) {
+                    i.sample_reset();
+                }
 
-        if self.sample.is_some() {
-            match &self.module.instrument[self.instrnr.unwrap()].instr_type {
-                InstrumentType::Default(instr) => match self.sample {
+                if !flags.contains(TriggerKeep::ENVELOPE) {
+                    i.envelopes_reset();
+                }
+
+                i.vibrato_reset();
+
+                match &i.state_sample {
                     Some(s) => {
-                        let sample = &instr.sample[s];
                         if !flags.contains(TriggerKeep::VOLUME) {
-                            self.volume = sample.volume;
+                            self.volume = s.sample.volume;
                         }
-                        self.panning = sample.panning;
+                        self.panning = s.sample.panning;
                     }
-                    _ => {}
-                },
-                _ => {}
+                    None => {}
+                }
             }
+            None => {}
         }
 
-        if !flags.contains(TriggerKeep::ENVELOPE) {
-            self.envelope_sustained = true;
-            self.state_envelope_volume_fadeout = 1.0;
-            self.state_envelope_volume.reset();
-            self.state_envelope_panning.reset();
-        }
         self.vibrato_note_offset = 0.0;
         self.tremolo_volume = 0.0;
         self.tremor_on = false;
 
-        self.state_vibrato.counter = 0;
-
         if self.vibrato_waveform_retrigger {
-            self.vibrato_ticks = 0; /* XXX: should the waveform itself also
-                                     * be reset to sine? */
+            self.vibrato_step = 0; /* XXX: should the waveform itself also
+                                    * be reset to sine? */
         }
+
         if self.tremolo_waveform_retrigger {
-            self.tremolo_ticks = 0;
+            self.tremolo_counter = 0;
         }
 
         if !flags.contains(TriggerKeep::PERIOD) {
@@ -396,8 +324,15 @@ impl Channel {
     }
 
     pub fn tick(&mut self, current_tick: u16, tempo: u16) {
-        self.envelopes();
-        self.autovibrato();
+        match &mut self.instr {
+            Some(instr) => {
+                instr.envelopes();
+                instr.state_vibrato.tick();
+            }
+            None => return,
+        }
+
+        self.update_frequency();
 
         if self.arp_in_progress && !self.current.has_arpeggio() {
             self.arp_in_progress = false;
@@ -498,7 +433,12 @@ impl Channel {
                             let r = current_tick % (self.current.effect_parameter as u16 & 0x0F);
                             if r != 0 {
                                 self.trigger_note(TriggerKeep::VOLUME);
-                                self.envelopes();
+                                match &mut self.instr {
+                                    Some(instr) => {
+                                        instr.envelopes();
+                                    }
+                                    None => {}
+                                }
                             }
                         }
                     }
@@ -512,7 +452,12 @@ impl Channel {
                         /* EDy: Note delay */
                         if self.note_delay_param as u16 == current_tick {
                             self.handle_note_and_instrument();
-                            self.envelopes();
+                            match &mut self.instr {
+                                Some(instr) => {
+                                    instr.envelopes();
+                                }
+                                None => {}
+                            }
                         }
                     }
                     _ => {}
@@ -540,10 +485,8 @@ impl Channel {
 
                         /* Rxy doesn't affect volume if there's a command in the volume
                         column, or if the instrument has a volume envelope. */
-                        if self.instrnr.is_some() {
-                            if let InstrumentType::Default(instr) =
-                                &self.module.instrument[self.instrnr.unwrap()].instr_type
-                            {
+                        match &self.instr {
+                            Some(instr) => {
                                 if self.current.volume != 0 && !instr.volume_envelope.enabled {
                                     let mut v = self.volume
                                         * MULTI_RETRIG_MULTIPLY
@@ -554,6 +497,7 @@ impl Channel {
                                     self.volume = v;
                                 }
                             }
+                            None => {}
                         }
                     }
                 }
@@ -567,102 +511,98 @@ impl Channel {
             _ => {}
         }
 
-        let panning: f32 = self.panning
-            + (self.state_envelope_panning.value - 0.5) * (0.5 - (self.panning - 0.5).abs()) * 2.0;
-        let mut volume = 0.0;
+        match &self.instr {
+            Some(instr) => {
+                let panning: f32 = self.panning
+                    + (instr.envelope_panning.value - 0.5)
+                        * (0.5 - (self.panning - 0.5).abs())
+                        * 2.0;
+                let mut volume = 0.0;
 
-        if !self.tremor_on {
-            volume = self.volume + self.tremolo_volume;
-            clamp(&mut volume);
-            volume *= self.state_envelope_volume_fadeout * self.state_envelope_volume.value;
+                if !self.tremor_on {
+                    volume = self.volume + self.tremolo_volume;
+                    clamp(&mut volume);
+                    volume *= instr.envelope_volume_fadeout * instr.envelope_volume.value;
+                }
+
+                // if RAMPING {
+                //     /* See https://modarchive.org/forums/index.php?topic=3517.0
+                //      * and https://github.com/Artefact2/libxm/pull/16 */
+                //     self.target_volume[0] = volume * (1.0 - panning).sqrt();
+                //     self.target_volume[1] = volume * panning.sqrt();
+                // } else {
+                self.actual_volume[0] = volume * (1.0 - panning).sqrt();
+                self.actual_volume[1] = volume * panning.sqrt();
+                // }
+            }
+            None => {}
         }
-
-        // if RAMPING {
-        //     /* See https://modarchive.org/forums/index.php?topic=3517.0
-        //      * and https://github.com/Artefact2/libxm/pull/16 */
-        //     self.target_volume[0] = volume * (1.0 - panning).sqrt();
-        //     self.target_volume[1] = volume * panning.sqrt();
-        // } else {
-        self.actual_volume[0] = volume * (1.0 - panning).sqrt();
-        self.actual_volume[1] = volume * panning.sqrt();
-        // }
     }
 
     fn handle_note_and_instrument(&mut self) {
         let noteu8: u8 = self.current.note.into();
+
+        // First, load instr
         if self.current.instrument > 0 {
-            if self.current.has_tone_portamento() && self.instrnr.is_some() && self.sample.is_some()
-            {
+            if self.current.has_tone_portamento() {
                 /* Tone portamento in effect, unclear stuff happens */
                 self.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
             } else if let Note::None = self.current.note {
-                if self.sample.is_some() {
-                    /* Ghost instrument, trigger note */
-                    /* Sample position is kept, but envelopes are reset */
-                    self.trigger_note(TriggerKeep::SAMPLE_POSITION);
-                }
+                /* Ghost instrument, trigger note */
+                /* Sample position is kept, but envelopes are reset */
+                self.trigger_note(TriggerKeep::SAMPLE_POSITION);
             } else if self.current.instrument as usize > self.module.instrument.len() {
                 /* Invalid instrument, Cut current note */
                 self.cut_note();
-                self.instrnr = None;
-                self.sample = None;
+                self.instr = None;
             } else {
                 let instrnr = self.current.instrument as usize - 1;
                 if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
                     // only good instr
                     if id.sample.len() != 0 {
-                        self.instrnr = Some(instrnr);
+                        let instr = StateInstrDefault::new(id.clone(), self.freq_type, self.rate);
+                        self.instr = Some(instr);
                     }
+                } else {
+                    // TODO
                 }
             }
         }
 
+        // Next, choose sample from note
         if note_is_valid(noteu8) {
-            if self.instrnr.is_some() {
-                match &self.module.instrument[self.instrnr.unwrap()].instr_type {
-                    InstrumentType::Empty => self.cut_note(),
-                    InstrumentType::Default(instr) => {
-                        if self.current.has_tone_portamento() {
-                            if self.sample.is_some() {
-                                /* Tone portamento in effect */
-                                let chsample = &instr.sample[self.sample.unwrap()];
-                                self.note = noteu8 as f32 - 1.0
-                                    + chsample.relative_note as f32
-                                    + chsample.finetune;
-                                self.tone_portamento_target_period =
-                                    period(self.module.frequency_type, self.note);
-                            } else if instr.sample.len() == 0 {
-                                self.cut_note();
+            match &mut self.instr {
+                Some(i) => {
+                    if self.current.has_tone_portamento() {
+                        match &i.state_sample {
+                            Some(s) => {
+                                if s.is_enabled() {
+                                    self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
+                                    self.tone_portamento_target_period =
+                                        period(self.module.frequency_type, self.note);
+                                } else {
+                                    self.cut_note();
+                                }
                             }
-                        } else if (instr.sample_for_note[noteu8 as usize - 1] as usize)
-                            < instr.sample.len()
-                        {
-                            // if RAMPING {
-                            //     for z in 0..SAMPLE_RAMPING_POINTS {
-                            //         self.end_of_previous_sample[z] = self.next_of_sample();
-                            //     }
-                            //     self.frame_count = 0;
-                            // }
-                            self.sample = Some(instr.sample_for_note[noteu8 as usize - 1] as usize);
-                            let chsample = &instr.sample[self.sample.unwrap()];
-                            self.orig_note = noteu8 as f32 - 1.0
-                                + chsample.relative_note as f32
-                                + chsample.finetune;
-                            self.note = self.orig_note;
-
-                            if self.current.instrument > 0 {
-                                self.trigger_note(TriggerKeep::NONE);
-                            } else {
-                                /* Ghost note: keep old volume */
-                                self.trigger_note(TriggerKeep::VOLUME);
-                            }
+                            None => self.cut_note(),
                         }
+                    } else if i.set_note(self.current.note) {
+                        if let Some(s) = &i.state_sample {
+                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
+                            self.note = self.orig_note;
+                        }
+
+                        if self.current.instrument > 0 {
+                            self.trigger_note(TriggerKeep::NONE);
+                        } else {
+                            /* Ghost note: keep old volume */
+                            self.trigger_note(TriggerKeep::VOLUME);
+                        }
+                    } else {
+                        self.cut_note();
                     }
-                    _ => {} // TODO
                 }
-            } else {
-                /* Bad instrument */
-                self.cut_note();
+                None => self.cut_note(),
             }
         } else if let Note::KeyOff = self.current.note {
             self.key_off();
@@ -683,10 +623,7 @@ impl Channel {
             // A - Fine volume up (0..15)
             0x9 => self.volume_slide(self.current.volume << 4),
             // U - Vibrato speed (0..15)
-            0xA => {
-                self.vibrato_param =
-                    (self.vibrato_param & 0x0F) | ((self.current.volume & 0x0F) << 4)
-            }
+            0xA => self.vibrato_speed = self.current.volume as u16 & 0x0F,
             // H - Vibrato depth (0..15)
             0xB => {} // see tick() fn
             // P - Set panning (2,6,10,14..62)
@@ -733,13 +670,11 @@ impl Channel {
                 /* 4xy: Vibrato */
                 if self.current.effect_parameter & 0x0F != 0 {
                     /* Set vibrato depth */
-                    self.vibrato_param =
-                        (self.vibrato_param & 0xF0) | (self.current.effect_parameter & 0x0F);
+                    self.vibrato_depth = (self.current.effect_parameter & 0x0F) as f32 / 15.0;
                 }
                 if self.current.effect_parameter >> 4 != 0 {
                     /* Set vibrato speed */
-                    self.vibrato_param =
-                        (self.current.effect_parameter & 0xF0) | (self.vibrato_param & 0x0F);
+                    self.vibrato_speed = (self.current.effect_parameter >> 4) as u16;
                 }
             }
             0x5 => {
@@ -758,13 +693,11 @@ impl Channel {
                 /* 7xy: Tremolo */
                 if self.current.effect_parameter & 0x0F != 0 {
                     /* Set tremolo depth */
-                    self.tremolo_param =
-                        (self.tremolo_param & 0xF0) | (self.current.effect_parameter & 0x0F);
+                    self.tremolo_depth = (self.current.effect_parameter & 0x0F) as f32 / 15.0;
                 }
                 if self.current.effect_parameter >> 4 != 0 {
                     /* Set tremolo speed */
-                    self.tremolo_param =
-                        (self.current.effect_parameter & 0xF0) | (self.tremolo_param & 0x0F);
+                    self.tremolo_speed = (self.current.effect_parameter >> 4) as u16;
                 }
             }
             0x8 => {
@@ -773,24 +706,20 @@ impl Channel {
             }
             0x9 => {
                 /* 9xx: Sample offset */
-                if self.sample.is_some() && note_is_valid(noteu8) {
-                    if let InstrumentType::Default(instr) =
-                        &self.module.instrument[self.instrnr.unwrap()].instr_type
-                    {
-                        let chsample = &instr.sample[self.sample.unwrap()];
-
-                        let final_offset = if chsample.bits() == 16 {
-                            self.current.effect_parameter as usize * 256
-                        } else {
-                            self.current.effect_parameter as usize * 512
-                        };
-
-                        if final_offset >= chsample.len() {
-                            /* Pretend the sample doesn't loop and is done playing */
-                            self.state_sample.disable();
-                        } else {
-                            self.state_sample.set_position(final_offset as f32);
-                        }
+                if note_is_valid(noteu8) {
+                    match &mut self.instr {
+                        Some(i) => match &mut i.state_sample {
+                            Some(s) => {
+                                let final_offset = if s.sample.bits() == 16 {
+                                    self.current.effect_parameter as usize * 256
+                                } else {
+                                    self.current.effect_parameter as usize * 512
+                                };
+                                s.set_position(final_offset);
+                            }
+                            None => {}
+                        },
+                        None => {}
                     }
                 }
             }
@@ -836,19 +765,22 @@ impl Channel {
                     }
                     0x5 => {
                         /* E5y: Set finetune */
-                        if note_is_valid(noteu8) && self.sample.is_some() {
-                            if let InstrumentType::Default(instr) =
-                                &self.module.instrument[self.instrnr.unwrap()].instr_type
-                            {
-                                let chsample = &instr.sample[self.sample.unwrap()];
-                                let noteu8: u8 = self.current.note.into();
-                                self.note = noteu8 as f32 - 1.0
-                                    + chsample.relative_note as f32
-                                    + (((self.current.effect_parameter & 0x0F) as i8 - 8) << 4)
-                                        as f32
-                                        / 128.0;
-                                self.period = period(self.module.frequency_type, self.note);
-                                self.update_frequency();
+                        if note_is_valid(noteu8) {
+                            match &mut self.instr {
+                                Some(i) => match &mut i.state_sample {
+                                    Some(s) => {
+                                        self.note = noteu8 as f32 - 1.0
+                                            + s.relative_note as f32
+                                            + (((self.current.effect_parameter & 0x0F) as i8 - 8)
+                                                << 4)
+                                                as f32
+                                                / 128.0;
+                                        self.period = period(self.module.frequency_type, self.note);
+                                        self.update_frequency();
+                                    }
+                                    None => {}
+                                },
+                                None => {}
                             }
                         }
                     }
@@ -899,8 +831,13 @@ impl Channel {
             }
             0x15 => {
                 /* Lxx: Set envelope position */
-                self.state_envelope_volume.counter = self.current.effect_parameter as u16;
-                self.state_envelope_panning.counter = self.current.effect_parameter as u16;
+                match &mut self.instr {
+                    Some(i) => {
+                        i.envelope_volume.counter = self.current.effect_parameter as u16;
+                        i.envelope_panning.counter = self.current.effect_parameter as u16;
+                    }
+                    None => {}
+                }
             }
             0x19 => {
                 /* Pxy: Panning slide */
@@ -951,6 +888,18 @@ impl Channel {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+impl Iterator for Channel {
+    type Item = f32;
+
+    // Was next_of_sample()
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.instr {
+            Some(i) => i.next(),
+            None => None,
         }
     }
 }

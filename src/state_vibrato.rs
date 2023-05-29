@@ -1,16 +1,27 @@
-/// An Instrument Vibrato State
 use crate::helper::*;
-use xmrs::prelude::*;
+/// An Instrument Vibrato State
+use std::ops::Deref;
+use std::sync::Arc;
+use xmrs::vibrato::Vibrato;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct StateVibrato {
-    pub value: f32,   // autovibrato_note_offset
-    pub counter: u16, // autovibrato_ticks
+    vibrato: Arc<Vibrato>,
+    pub value: f32, // autovibrato_note_offset
+    counter: u16,   // autovibrato_ticks
+}
+
+impl Deref for StateVibrato {
+    type Target = Vibrato;
+    fn deref(&self) -> &Vibrato {
+        &self.vibrato
+    }
 }
 
 impl StateVibrato {
-    pub fn new() -> Self {
+    pub fn new(vibrato: Arc<Vibrato>) -> Self {
         Self {
+            vibrato: vibrato,
             value: 0.0,
             counter: 0,
         }
@@ -21,19 +32,12 @@ impl StateVibrato {
         self.counter = 0;
     }
 
-    pub fn tick(&mut self, instr: &InstrDefault) {
-        if instr.vibrato.depth == 0.0 && self.value != 0.0 {
+    pub fn tick(&mut self) {
+        if self.vibrato.depth == 0.0 && self.value != 0.0 {
             self.value = 0.0;
         } else {
-            let sweep = if self.counter < instr.vibrato.sweep as u16 {
-                /* No idea if this is correct, but it sounds close enough… */
-                lerp(0.0, 1.0, self.counter as f32 / instr.vibrato.sweep as f32)
-            } else {
-                1.0
-            };
-            let step = (self.counter * instr.vibrato.speed as u16) >> 2;
+            self.value = self.vibrato.get_value(self.counter);
             self.counter = (self.counter + 1) & 63;
-            self.value = 0.25 * instr.vibrato.waveform.waveform(step) * instr.vibrato.depth * sweep;
         }
     }
 }

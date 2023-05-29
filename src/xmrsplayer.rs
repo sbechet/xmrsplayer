@@ -339,29 +339,29 @@ impl XmrsPlayer {
         }
 
         for ch in &mut self.channel {
-            if ch.instrnr.is_none() || ch.sample.is_none() || !ch.state_sample.is_enabled() {
-                continue;
-            }
-            let fval = ch.next_of_sample();
+            match ch.next() {
+                Some(fval) => {
+                    if !ch.is_muted() {
+                        left += fval * ch.actual_volume[0];
+                        right += fval * ch.actual_volume[1];
+                    }
 
-            if !ch.muted && !ch.module.instrument[ch.instrnr.unwrap()].muted {
-                left += fval * ch.actual_volume[0];
-                right += fval * ch.actual_volume[1];
+                    // if RAMPING {
+                    //     ch.frame_count += 1;
+                    //     slide_towards(
+                    //         &mut ch.actual_volume[0],
+                    //         ch.target_volume[0],
+                    //         self.volume_ramp,
+                    //     );
+                    //     slide_towards(
+                    //         &mut ch.actual_volume[1],
+                    //         ch.target_volume[1],
+                    //         self.volume_ramp,
+                    //     );
+                    // }
+                }
+                None => {}
             }
-
-            // if RAMPING {
-            //     ch.frame_count += 1;
-            //     slide_towards(
-            //         &mut ch.actual_volume[0],
-            //         ch.target_volume[0],
-            //         self.volume_ramp,
-            //     );
-            //     slide_towards(
-            //         &mut ch.actual_volume[1],
-            //         ch.target_volume[1],
-            //         self.volume_ramp,
-            //     );
-            // }
         }
 
         let fgvol = self.global_volume * self.amplification;
