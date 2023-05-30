@@ -261,9 +261,9 @@ impl Channel {
                 match &instr.state_sample {
                     Some(s) => {
                         if !flags.contains(TriggerKeep::VOLUME) {
-                            self.volume = s.sample.volume;
+                            self.volume = s.get_volume();
                         }
-                        self.panning = s.sample.panning;
+                        self.panning = s.get_panning();
                     }
                     None => {}
                 }
@@ -584,7 +584,7 @@ impl Channel {
                     match &mut self.instr {
                         Some(i) => match &mut i.state_sample {
                             Some(s) => {
-                                let final_offset = if s.sample.bits() == 16 {
+                                let final_offset = if s.bits() == 16 {
                                     self.current.effect_parameter as usize * 256
                                 } else {
                                     self.current.effect_parameter as usize * 512

@@ -14,7 +14,7 @@ impl Deref for StateSample {
 
 #[derive(Clone)]
 pub struct StateSample {
-    pub sample: Arc<Sample>,
+    sample: Arc<Sample>,
     /// current seek position
     position: f32,
     /// step is freq / rate
@@ -63,11 +63,23 @@ impl StateSample {
         self.position = -1.0;
     }
 
+    pub fn bits(&self) -> u8 {
+        self.sample.bits()
+    }
+
+    pub fn get_panning(&self) -> f32 {
+        self.sample.panning
+    }
+
+    pub fn get_volume(&self) -> f32 {
+        self.sample.volume
+    }
+
     pub fn get_finetuned_note(&self) -> f32 {
         self.sample.relative_note as f32 + self.sample.finetune
     }
 
-    fn tick_internal(&mut self) -> f32 {
+    fn tick(&mut self) -> f32 {
         let a: u32 = self.position as u32;
         // LINEAR_INTERPOLATION START
         let b: u32 = a + 1;
@@ -180,7 +192,7 @@ impl Iterator for StateSample {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.position >= 0.0 {
-            Some(self.tick_internal())
+            Some(self.tick())
         } else {
             None
         }

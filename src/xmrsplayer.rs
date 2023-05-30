@@ -24,15 +24,15 @@ pub struct XmrsPlayer {
     current_row: u8,
     current_tick: u16, /* Can go below 255, with high tempo and a pattern delay */
     remaining_samples_in_tick: f32,
-    generated_samples: u64,
+    /// +1 for a (left,right) sample
+    pub generated_samples: u64,
 
     position_jump: bool,
     pattern_break: bool,
     jump_dest: u16,
     jump_row: u8,
 
-    /* Extra ticks to be played before going to the next row -
-     * Used for EEy effect */
+    /// Extra ticks to be played before going to the next row - Used for EEy effect
     extra_ticks: u16,
 
     channel: Vec<Channel>,
@@ -41,7 +41,8 @@ pub struct XmrsPlayer {
     loop_count: u8,
     max_loop_count: u8,
 
-    right_sample: Option<f32>, // None if next-one is a left sample, else right sample
+    /// None if next-one is a left sample, else right sample
+    right_sample: Option<f32>, 
     debug: bool,
 }
 
@@ -155,15 +156,16 @@ impl XmrsPlayer {
         }
     }
 
-    pub fn tick0_global_effects(&mut self, ch_index: usize) {
+    fn tick0_global_effects(&mut self, ch_index: usize) {
         let ch = &mut self.channel[ch_index];
+        let pattern_slot = &ch.current;
 
-        match ch.current.effect_type {
+        match pattern_slot.effect_type {
             0xB => {
                 /* Bxx: Position jump */
-                if (ch.current.effect_parameter as usize) < self.module.pattern_order.len() {
+                if (pattern_slot.effect_parameter as usize) < self.module.pattern_order.len() {
                     self.position_jump = true;
-                    self.jump_dest = ch.current.effect_parameter as u16;
+                    self.jump_dest = pattern_slot.effect_parameter as u16;
                     self.jump_row = 0;
                 }
             }
@@ -172,15 +174,15 @@ impl XmrsPlayer {
                 /* Jump after playing this line */
                 self.pattern_break = true;
                 self.jump_row =
-                    (ch.current.effect_parameter >> 4) * 10 + (ch.current.effect_parameter & 0x0F);
+                    (pattern_slot.effect_parameter >> 4) * 10 + (pattern_slot.effect_parameter & 0x0F);
             }
             0xE => {
                 /* EXy: Extended command */
-                match ch.current.effect_parameter >> 4 {
+                match pattern_slot.effect_parameter >> 4 {
                     0x6 => {
                         /* E6y: Pattern loop */
-                        if ch.current.effect_parameter & 0x0F != 0 {
-                            if (ch.current.effect_parameter & 0x0F) == ch.pattern_loop_count {
+                        if pattern_slot.effect_parameter & 0x0F != 0 {
+                            if (pattern_slot.effect_parameter & 0x0F) == ch.pattern_loop_count {
                                 /* Loop is over */
                                 ch.pattern_loop_count = 0;
                             } else {
@@ -199,40 +201,40 @@ impl XmrsPlayer {
                     }
                     0xE => {
                         /* EEy: Pattern delay */
-                        self.extra_ticks = (ch.current.effect_parameter & 0x0F) as u16 * self.tempo;
+                        self.extra_ticks = (pattern_slot.effect_parameter & 0x0F) as u16 * self.tempo;
                     }
                     _ => {}
                 }
             }
             0xF => {
                 /* Fxx: Set tempo/BPM */
-                if ch.current.effect_parameter > 0 {
-                    if ch.current.effect_parameter <= 0x1F {
-                        self.tempo = ch.current.effect_parameter as u16;
+                if pattern_slot.effect_parameter > 0 {
+                    if pattern_slot.effect_parameter <= 0x1F {
+                        self.tempo = pattern_slot.effect_parameter as u16;
                     } else {
-                        self.bpm = ch.current.effect_parameter as u16;
+                        self.bpm = pattern_slot.effect_parameter as u16;
                     }
                 }
             }
             0x10 => {
                 /* Gxx: Set global volume */
-                self.global_volume = if ch.current.effect_parameter > 64 {
+                self.global_volume = if pattern_slot.effect_parameter > 64 {
                     1.0
                 } else {
-                    ch.current.effect_parameter as f32 / 64.0
+                    pattern_slot.effect_parameter as f32 / 64.0
                 };
             }
             0x11 => {
                 /* Hxy: Global volume slide */
-                if ch.current.effect_parameter > 0 {
-                    self.global_volume_slide_param = ch.current.effect_parameter;
+                if pattern_slot.effect_parameter > 0 {
+                    self.global_volume_slide_param = pattern_slot.effect_parameter;
                 }
             }
             _ => {}
         }
     }
 
-    fn row(&mut self) {
+    fn tick0(&mut self) {
         if self.position_jump {
             self.current_table_index = self.jump_dest;
             self.current_row = self.jump_row;
@@ -289,7 +291,7 @@ impl XmrsPlayer {
 
     fn tick(&mut self) {
         if self.current_tick == 0 {
-            self.row();
+            self.tick0();
         }
 
         for ch in &mut self.channel {
@@ -374,6 +376,7 @@ impl XmrsPlayer {
     fn sample_one(&mut self) -> Option<f32> {
         match self.right_sample {
             Some(right) => {
+                self.generated_samples += 1;
                 self.right_sample = None;
                 return Some(right);
             }
@@ -413,7 +416,6 @@ impl Iterator for XmrsPlayer {
         if self.max_loop_count > 0 && self.loop_count >= self.max_loop_count {
             return None;
         } else {
-            self.generated_samples += 1;
             self.sample_one()
         }
     }

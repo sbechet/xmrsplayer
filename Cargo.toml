@@ -1,13 +1,14 @@
 [package]
 name = "xmrsplayer"
-version = "0.1.8"
+version = "0.2.0"
 edition = "2021"
-description = "XMrsPlayer is a portage of libxm in Rust language to play real music"
-license = "MIT"
+description = "XMrsPlayer is a safe portage of libxm to play real music"
 authors = ["Sebastien Bechet"]
 documentation = "https://docs.rs/xmrsplayer"
 repository = "https://github.com/sbechet/xmrsplayer"
+
 readme = "README.md"
+license = "MIT"
 
 keywords = ["xm", "module", "mod", "s3m", "tracker"]
 categories = ["multimedia::audio"]
@@ -37,5 +38,3 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
-
-

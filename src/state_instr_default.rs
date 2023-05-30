@@ -32,7 +32,7 @@ pub struct StateInstrDefault {
     /// Volume Envelope state
     pub envelope_volume: StateEnvelope,
     // Volume sustained?
-    pub envelope_sustained: bool,
+    envelope_sustained: bool,
     /// Volume fadeout value
     pub envelope_volume_fadeout: f32,
 
