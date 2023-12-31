@@ -134,7 +134,7 @@ impl StateSample {
                     /* sanity self.cking */
                     if self.position as usize >= self.sample.len() {
                         self.ping = false;
-                        self.position -= self.sample.len() as f32 - 1.0;
+                        self.position = self.sample.len() as f32 - 1.0;
                     }
 
                     let seek = if b >= loop_end { a } else { b };
