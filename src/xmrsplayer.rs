@@ -400,8 +400,8 @@ impl XmrsPlayer {
         for i in 0..numsamples {
             match self.sample() {
                 Some((left, right)) => {
-                    output[(2 * i)] = left;
-                    output[(2 * i + 1)] = right;
+                    output[2 * i] = left;
+                    output[2 * i + 1] = right;
                 }
                 None => {}
             }

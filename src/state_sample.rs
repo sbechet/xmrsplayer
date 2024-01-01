@@ -125,13 +125,13 @@ impl StateSample {
                     self.position -= self.step;
                 }
                 /* XXX: this may not work for very tight ping-pong loops
-                 * (ie switself.s direction more than once per sample */
+                 * (ie switches direction more than once per sample */
                 if self.ping {
                     if self.position as u32 >= loop_end {
                         self.ping = false;
                         self.position = (loop_end << 1) as f32 - self.position;
                     }
-                    /* sanity self.cking */
+                    /* sanity checking */
                     if self.position as usize >= self.sample.len() {
                         self.ping = false;
                         self.position -= self.sample.len() as f32 - 1.0;
@@ -156,7 +156,7 @@ impl StateSample {
                         self.ping = true;
                         self.position = (self.sample.loop_start << 1) as f32 - self.position;
                     }
-                    /* sanity self.cking */
+                    /* sanity checking */
                     if self.position <= 0.0 {
                         self.ping = true;
                         self.position = 0.0;
