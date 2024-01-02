@@ -18,7 +18,7 @@ struct Cli {
     #[arg(
         short = 'f',
         long,
-        default_value = "DEADLOCK.XM",
+        default_value = "coretex_-_home.xm", // https://modarchive.org/index.php?request=view_by_moduleid&query=159594
         value_name = "filename"
     )]
     filename: Option<String>,
