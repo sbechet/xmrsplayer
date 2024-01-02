@@ -85,6 +85,7 @@ impl StateSample {
         let b: u32 = a + 1;
         let t: f32 = self.position - a as f32;
         // LINEAR_INTERPOLATION END
+
         let mut u: f32 = self.sample.at(a as usize);
 
         let loop_end = self.sample.loop_start + self.sample.loop_length;
@@ -105,9 +106,13 @@ impl StateSample {
             }
             LoopType::Forward => {
                 self.position += self.step;
-                if self.position as u32 >= loop_end {
+                if self.position >= loop_end as f32 {
                     let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
                     self.position = loop_end as f32 - delta;
+                }
+                /* sanity checking */
+                if self.position >= self.sample.len() as f32 {
+                    self.position = self.sample.len() as f32 - 1.0;
                 }
 
                 // LINEAR_INTERPOLATION START
@@ -127,21 +132,33 @@ impl StateSample {
                 }
 
                 if self.ping {
-                    if self.position as u32 >= loop_end {
+                    if self.position >= loop_end as f32 {
                         self.ping = false;
                         let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
                         self.position = loop_end as f32 - delta;
                     }
+                    /* sanity checking */
+                    if self.position >= self.sample.len() as f32 {
+                        self.ping = false;
+                        self.position = self.sample.len() as f32 - 1.0;
+                    }
+
                     // LINEAR_INTERPOLATION START
                     let seek = if b >= loop_end { a } else { b };
                     self.sample.at(seek as usize)
                     // LINEAR_INTERPOLATION END
                 } else {
-                    if self.position as u32 <= self.sample.loop_start {
+                    if self.position <= self.sample.loop_start as f32 {
                         self.ping = true;
                         let delta = (self.sample.loop_start as f32 - self.position) % self.sample.loop_length as f32;
                         self.position = self.sample.loop_start as f32 + delta;
                     }
+                    /* sanity checking */
+                    if self.position <= 0.0 {
+                        self.ping = true;
+                        self.position = 0.0;
+                    }
+
                     // LINEAR_INTERPOLATION START
                     let v = u;
                     let seek = if b == 1 || b - 2 <= self.sample.loop_start { a } else { b - 2 };
