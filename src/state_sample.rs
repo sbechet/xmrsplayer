@@ -93,7 +93,7 @@ impl StateSample {
             LoopType::No => {
                 self.position += self.step;
                 if self.position >= self.sample.len() as f32 {
-                    self.position = -1.0;
+                    self.disable();
                 }
                 // LINEAR_INTERPOLATION START
                 if b < self.sample.len() as u32 {
@@ -105,16 +105,17 @@ impl StateSample {
             }
             LoopType::Forward => {
                 self.position += self.step;
-                while self.position as u32 >= loop_end {
-                    self.position -= self.sample.loop_length as f32;
+                if self.position as u32 >= loop_end {
+                    let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
+                    self.position = loop_end as f32 - delta;
                 }
 
-                let seek = if b == loop_end {
+                // LINEAR_INTERPOLATION START
+                let seek = if b >= loop_end {
                     self.sample.loop_start
                 } else {
                     b
                 };
-                // LINEAR_INTERPOLATION START
                 self.sample.at(seek as usize)
                 // LINEAR_INTERPOLATION END
             }
@@ -124,44 +125,29 @@ impl StateSample {
                 } else {
                     self.position -= self.step;
                 }
-                /* XXX: this may not work for very tight ping-pong loops
-                 * (ie switches direction more than once per sample */
+
                 if self.ping {
                     if self.position as u32 >= loop_end {
                         self.ping = false;
-                        self.position = (loop_end << 1) as f32 - self.position;
+                        let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
+                        self.position = loop_end as f32 - delta;
                     }
-                    /* sanity checking */
-                    if self.position as usize >= self.sample.len() {
-                        self.ping = false;
-                        self.position -= self.sample.len() as f32 - 1.0;
-                    }
-
-                    let seek = if b >= loop_end { a } else { b };
                     // LINEAR_INTERPOLATION START
+                    let seek = if b >= loop_end { a } else { b };
                     self.sample.at(seek as usize)
                     // LINEAR_INTERPOLATION END
                 } else {
-                    // LINEAR_INTERPOLATION START
-                    let v = u;
-                    let seek = if b == 1 || b - 2 <= self.sample.loop_start {
-                        a
-                    } else {
-                        b - 2
-                    };
-                    u = self.sample.at(seek as usize);
-                    // LINEAR_INTERPOLATION END
-
                     if self.position as u32 <= self.sample.loop_start {
                         self.ping = true;
-                        self.position = (self.sample.loop_start << 1) as f32 - self.position;
+                        let delta = (self.sample.loop_start as f32 - self.position) % self.sample.loop_length as f32;
+                        self.position = self.sample.loop_start as f32 + delta;
                     }
-                    /* sanity checking */
-                    if self.position <= 0.0 {
-                        self.ping = true;
-                        self.position = 0.0;
-                    }
+                    // LINEAR_INTERPOLATION START
+                    let v = u;
+                    let seek = if b == 1 || b - 2 <= self.sample.loop_start { a } else { b - 2 };
+                    u = self.sample.at(seek as usize);
                     v
+                    // LINEAR_INTERPOLATION END
                 }
             }
         };
