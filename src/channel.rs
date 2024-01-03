@@ -82,13 +82,6 @@ pub struct Channel {
     pub muted: bool,
 
     pub actual_volume: [f32; 2],
-    // RAMPING START
-    /* These values are updated at the end of each tick, to save
-     * a couple of float operations on every generated sample. */
-    // target_volume: [f32; 2],
-    // frame_count: usize,
-    // end_of_previous_sample: [f32; SAMPLE_RAMPING_POINTS],
-    // RAMPING END
 }
 
 impl Channel {
@@ -500,15 +493,8 @@ impl Channel {
                     volume *= instr.envelope_volume_fadeout * instr.envelope_volume.value;
                 }
 
-                // if RAMPING {
-                //     /* See https://modarchive.org/forums/index.php?topic=3517.0
-                //      * and https://github.com/Artefact2/libxm/pull/16 */
-                //     self.target_volume[0] = volume * (1.0 - panning).sqrt();
-                //     self.target_volume[1] = volume * panning.sqrt();
-                // } else {
                 self.actual_volume[0] = volume * (1.0 - panning).sqrt();
                 self.actual_volume[1] = volume * panning.sqrt();
-                // }
 
                 instr.update_frequency(
                     self.period,

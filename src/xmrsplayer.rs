@@ -13,13 +13,6 @@ pub struct XmrsPlayer {
     global_volume_slide_param: u8,
     /// Global amplification (default 1/4)
     pub amplification: f32,
-
-    // RAMPING START
-    /* How much is a channel final volume allowed to change per
-     * sample; this is used to avoid abrubt volume changes which
-     * manifest as "clicks" in the generated sound. */
-    // volume_ramp: f32,
-    // RAMPING END
     current_table_index: u16,
     current_row: u8,
     current_tick: u16, /* Can go below 255, with high tempo and a pattern delay */
@@ -347,20 +340,6 @@ impl XmrsPlayer {
                         left += fval * ch.actual_volume[0];
                         right += fval * ch.actual_volume[1];
                     }
-
-                    // if RAMPING {
-                    //     ch.frame_count += 1;
-                    //     slide_towards(
-                    //         &mut ch.actual_volume[0],
-                    //         ch.target_volume[0],
-                    //         self.volume_ramp,
-                    //     );
-                    //     slide_towards(
-                    //         &mut ch.actual_volume[1],
-                    //         ch.target_volume[1],
-                    //         self.volume_ramp,
-                    //     );
-                    // }
                 }
                 None => {}
             }

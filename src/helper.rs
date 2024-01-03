@@ -1,9 +1,7 @@
 use xmrs::prelude::FrequencyType;
 
 pub const DEBUG: bool = false;
-pub const LINEAR_INTERPOLATION: bool = false;
-// pub const RAMPING: bool = false;
-pub const SAMPLE_RAMPING_POINTS: usize = 32;
+pub const LINEAR_INTERPOLATION: bool = true;
 
 pub const AMIGA_PERIOD_SCALE: usize = 1024;
 

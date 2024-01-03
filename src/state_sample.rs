@@ -81,10 +81,8 @@ impl StateSample {
 
     fn tick(&mut self) -> f32 {
         let a: u32 = self.position as u32;
-        // LINEAR_INTERPOLATION START
         let b: u32 = a + 1;
         let t: f32 = self.position - a as f32;
-        // LINEAR_INTERPOLATION END
 
         let mut u: f32 = self.sample.at(a as usize);
 
@@ -96,32 +94,29 @@ impl StateSample {
                 if self.position >= self.sample.len() as f32 {
                     self.disable();
                 }
-                // LINEAR_INTERPOLATION START
                 if b < self.sample.len() as u32 {
                     self.sample.at(b as usize)
                 } else {
                     0.0
                 }
-                // LINEAR_INTERPOLATION END
             }
             LoopType::Forward => {
                 self.position += self.step;
-                while self.position >= loop_end as f32 {
-                    self.position -= self.sample.loop_length as f32;
+                if self.position >= loop_end as f32 {
+                    let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
+                    self.position = self.sample.loop_start as f32 + delta;
                 }
                 /* sanity checking */
                 if self.position >= self.sample.len() as f32 {
                     self.position = self.sample.len() as f32 - 1.0;
                 }
 
-                // LINEAR_INTERPOLATION START
                 let seek = if b >= loop_end {
                     self.sample.loop_start
                 } else {
                     b
                 };
                 self.sample.at(seek as usize)
-                // LINEAR_INTERPOLATION END
             }
             LoopType::PingPong => {
                 if self.ping {
@@ -142,10 +137,8 @@ impl StateSample {
                         self.position = self.sample.len() as f32 - 1.0;
                     }
 
-                    // LINEAR_INTERPOLATION START
                     let seek = if b >= loop_end { a } else { b };
                     self.sample.at(seek as usize)
-                    // LINEAR_INTERPOLATION END
                 } else {
                     if self.position <= self.sample.loop_start as f32 {
                         self.ping = true;
@@ -158,12 +151,10 @@ impl StateSample {
                         self.position = 0.0;
                     }
 
-                    // LINEAR_INTERPOLATION START
                     let v = u;
                     let seek = if b == 1 || b - 2 <= self.sample.loop_start { a } else { b - 2 };
                     u = self.sample.at(seek as usize);
                     v
-                    // LINEAR_INTERPOLATION END
                 }
             }
         };
@@ -173,17 +164,6 @@ impl StateSample {
         } else {
             u
         };
-
-        // if RAMPING {
-        //     if self.frame_count < SAMPLE_RAMPING_POINTS {
-        //         /* Smoothly transition between old and new self.sample. */
-        //         return lerp(
-        //             self.end_of_previous_sample[self.frame_count],
-        //             endval,
-        //             self.frame_count as f32 / SAMPLE_RAMPING_POINTS as f32,
-        //         );
-        //     }
-        // }
 
         return endval;
     }
