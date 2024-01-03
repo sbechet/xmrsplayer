@@ -375,7 +375,7 @@ impl Channel {
                     _ => {}
                 }
             }
-            20 => {
+            0x14 => {
                 /* Kxx: Key off */
                 /* Most documentations will tell you the parameter has no
                  * use. Don't be fooled. */
@@ -383,12 +383,12 @@ impl Channel {
                     self.key_off();
                 }
             }
-            25 if current_tick != 0 => {
+            0x19 if current_tick != 0 => {
                 /* Pxy: Panning slide */
                 let rawval = self.panning_slide_param;
                 self.panning_slide(rawval);
             }
-            27 if current_tick != 0 => {
+            0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
                 if ((self.multi_retrig_param) & 0x0F) != 0 {
                     let r = current_tick % (self.multi_retrig_param as u16 & 0x0F);
@@ -414,7 +414,7 @@ impl Channel {
                     }
                 }
             }
-            29 if current_tick != 0 => {
+            0x1D if current_tick != 0 => {
                 /* Txy: Tremor */
                 self.tremor_on = (current_tick - 1)
                     % ((self.tremor_param as u16 >> 4) + (self.tremor_param as u16 & 0x0F) + 2)
@@ -427,28 +427,28 @@ impl Channel {
     fn tick_volume_effects(&mut self) {
         match self.current.volume >> 4 {
             0x6 => {
-                /* Volume slide down */
+                /* D - Volume slide down */
                 self.volume_slide(self.current.volume & 0x0F);
             }
             0x7 => {
-                /* Volume slide up */
+                /* U - Volume slide up */
                 self.volume_slide(self.current.volume << 4);
             }
             0xB => {
-                /* Vibrato */
+                /* S - Vibrato */
                 self.vibrato_in_progress = false;
                 self.vibrato();
             }
             0xD => {
-                /* Panning slide left */
+                /* L - Panning slide left */
                 self.panning_slide(self.current.volume & 0x0F);
             }
             0xE => {
-                /* Panning slide right */
+                /* R - Panning slide right */
                 self.panning_slide(self.current.volume << 4);
             }
             0xF => {
-                /* Tone portamento */
+                /* M - Tone portamento */
                 self.tone_portamento();
             }
             _ => {}
