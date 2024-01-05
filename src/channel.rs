@@ -427,15 +427,15 @@ impl Channel {
     fn tick_volume_effects(&mut self) {
         match self.current.volume >> 4 {
             0x6 => {
-                /* D - Volume slide down */
+                /* - - Volume slide down */
                 self.volume_slide(self.current.volume & 0x0F);
             }
             0x7 => {
-                /* U - Volume slide up */
+                /* + - Volume slide up */
                 self.volume_slide(self.current.volume << 4);
             }
             0xB => {
-                /* S - Vibrato */
+                /* V - Vibrato */
                 self.vibrato_in_progress = false;
                 self.vibrato();
             }
@@ -757,17 +757,17 @@ impl Channel {
             0x1..=0x4 => self.volume = (self.current.volume - 0x10) as f32 / 64.0,
             // V - 0x51..0x5F undefined...
             0x5 => self.volume = 1.0,
-            // D - Volume slide down (0..15)
+            // - - Volume slide down (0..15)
             0x6 => {} // see tick() fn
-            // C - Volume slide up (0..15)
+            // + - Volume slide up (0..15)
             0x7 => {} // see tick() fn
-            // B - Fine volume down (0..15)
+            // D - Fine volume slide down (0..15)
             0x8 => self.volume_slide(self.current.volume & 0x0F),
-            // A - Fine volume up (0..15)
+            // U - Fine volume slide up (0..15)
             0x9 => self.volume_slide(self.current.volume << 4),
-            // U - Vibrato speed (0..15)
+            // S - Vibrato speed (0..15)
             0xA => self.vibrato_speed = self.current.volume as u16 & 0x0F,
-            // H - Vibrato depth (0..15)
+            // V - Vibrato depth (0..15)
             0xB => {} // see tick() fn
             // P - Set panning (2,6,10,14..62)
             0xC => {
@@ -779,7 +779,7 @@ impl Channel {
             0xD => {} // see tick() fn
             // R - Pan slide right (0..15)
             0xE => {} // see tick() fn
-            // G - Tone portamento (0..15)
+            // M - Tone portamento (0..15)
             0xF => {
                 if self.current.volume & 0x0F != 0 {
                     self.tone_portamento_param =

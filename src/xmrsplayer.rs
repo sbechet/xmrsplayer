@@ -291,7 +291,7 @@ impl XmrsPlayer {
             ch.tick(self.current_tick, self.tempo);
 
             // Specific effect to slide global volume
-            if ch.current.effect_type == 17 && self.current_tick != 0 {
+            if ch.current.effect_type == 0x11 && self.current_tick != 0 {
                 /* Hxy: Global volume slide */
                 self.global_volume += if (self.global_volume_slide_param & 0xF0 != 0)
                     && (self.global_volume_slide_param & 0x0F != 0)
