@@ -119,8 +119,9 @@ fn cpal_play(
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
-        let t = player.lock().unwrap().get_current_pattern();
-        println!("current pattern:{}", t);
+        let ti = player.lock().unwrap().get_current_table_index();
+        let p = player.lock().unwrap().get_current_pattern();
+        println!("current table index:{:02x}, current pattern:{:02x}", ti, p);
     }
 }
 

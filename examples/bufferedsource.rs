@@ -1,5 +1,6 @@
 #![allow(unused_imports)]
 use rodio::Source;
+use std::sync::{Arc,Mutex};
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
 use xmrsplayer::xmrsplayer::XmrsPlayer;
@@ -7,14 +8,14 @@ use xmrsplayer::xmrsplayer::XmrsPlayer;
 pub const BUFFER_SIZE: usize = 2048;
 
 pub struct BufferedSource {
-    pub player: XmrsPlayer,
+    pub player: Arc<Mutex<XmrsPlayer>>,
     buffer: [f32; BUFFER_SIZE],
     buffer_index: usize,
     sample_rate: u32,
 }
 
 impl BufferedSource {
-    pub fn new(player: XmrsPlayer, sample_rate: u32) -> Self {
+    pub fn new(player: Arc<Mutex<XmrsPlayer>>, sample_rate: u32) -> Self {
         BufferedSource {
             player,
             buffer: [0.0; BUFFER_SIZE],
@@ -43,14 +44,14 @@ impl Iterator for BufferedSource {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.player.is_samples() {
+        if !self.player.lock().unwrap().is_samples() {
             return None;
         }
 
         self.buffer_index += 1;
 
         if self.buffer_index >= BUFFER_SIZE {
-            self.player.generate_samples(&mut self.buffer);
+            self.player.lock().unwrap().generate_samples(&mut self.buffer);
             self.buffer_index = 0;
         }
 

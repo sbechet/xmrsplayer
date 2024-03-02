@@ -1,7 +1,7 @@
 use clap::Parser;
 use console::{Key, Term};
 use rodio::Sink;
-use std::sync::Arc;
+use std::sync::{Arc,Mutex};
 
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
@@ -61,7 +61,7 @@ fn main() -> Result<(), std::io::Error> {
                     drop(xm);
                     println!("Playing {} !", module.name);
                     rodio_play(
-                        module.clone(),
+                        module,
                         cli.amplification,
                         cli.position,
                         cli.loops,
@@ -82,15 +82,19 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
-    let mut player = XmrsPlayer::new(module.clone(), SAMPLE_RATE as f32);
-    player.amplification = amplification;
-    if debug {
-        println!("Debug on");
+    let player = Arc::new(Mutex::new(XmrsPlayer::new(module, SAMPLE_RATE as f32)));
+    {
+        let mut player_lock = player.lock().unwrap();
+        player_lock.amplification = amplification;
+        if debug {
+            println!("Debug on");
+        }
+        player_lock.debug(debug);
+        player_lock.set_max_loop_count(loops);
+        player_lock.goto(position, 0);
     }
-    player.debug(debug);
-    player.set_max_loop_count(loops);
-    player.goto(position, 0);
 
+    let player_clone = Arc::clone(&player);
     let source = BufferedSource::new(player, SAMPLE_RATE);
     sink.append(source);
     // sink.append(player.buffered());
@@ -113,5 +117,8 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
             }
         }
         std::thread::sleep(std::time::Duration::from_secs(1));
+        let ti = player_clone.lock().unwrap().get_current_table_index();
+        let p = player_clone.lock().unwrap().get_current_pattern();
+        println!("current table index:{:02x}, current pattern:{:02x}", ti, p);
     }
 }
