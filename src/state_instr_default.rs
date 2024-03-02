@@ -40,7 +40,7 @@ pub struct StateInstrDefault {
     pub envelope_panning: StateEnvelope,
 
     /// Current volume
-    volume: f32,
+    pub volume: f32,
 }
 
 impl StateInstrDefault {

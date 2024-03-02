@@ -490,7 +490,7 @@ impl Channel {
                 if !self.tremor_on {
                     volume = self.volume + self.tremolo_volume;
                     clamp(&mut volume);
-                    volume *= instr.envelope_volume_fadeout * instr.envelope_volume.value;
+                    volume *= instr.envelope_volume_fadeout * instr.envelope_volume.value * instr.volume;
                 }
 
                 self.actual_volume[0] = volume * (1.0 - panning).sqrt();

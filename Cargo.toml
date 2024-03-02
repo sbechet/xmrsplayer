@@ -1,11 +1,11 @@
 [package]
 name = "xmrsplayer"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 description = "XMrsPlayer is a safe portage of libxm to play real music"
 authors = ["Sebastien Bechet"]
 documentation = "https://docs.rs/xmrsplayer"
-repository = "https://github.com/sbechet/xmrsplayer"
+repository = "https://codeberg.org/sbechet/xmrsplayer"
 
 readme = "README.md"
 license = "MIT"
