@@ -131,6 +131,10 @@ impl XmrsPlayer {
         self.module.pattern_order[self.current_table_index as usize] as usize
     }
 
+    pub fn get_current_table_index(&self) -> usize {
+        self.current_table_index as usize
+    }
+
     pub fn get_current_row(&self) -> usize {
         self.current_row as usize
     }
