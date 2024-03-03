@@ -50,7 +50,6 @@ impl XmrsPlayer {
             global_volume: 1.0,
             global_volume_slide_param: 0,
             amplification: 0.25,
-            // XXX volume_ramp: 1.0 / 128.0,
             current_table_index: 0,
             current_row: 0,
             current_tick: 0,
@@ -341,8 +340,8 @@ impl XmrsPlayer {
             match ch.next() {
                 Some(fval) => {
                     if !ch.is_muted() {
-                        left += fval * ch.actual_volume[0];
-                        right += fval * ch.actual_volume[1];
+                        left += fval.0;
+                        right += fval.1;
                     }
                 }
                 None => {}

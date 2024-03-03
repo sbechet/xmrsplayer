@@ -251,15 +251,11 @@ impl Channel {
 
                 instr.vibrato_reset();
 
-                match &instr.state_sample {
-                    Some(s) => {
-                        if !flags.contains(TriggerKeep::VOLUME) {
-                            self.volume = s.get_volume();
-                        }
-                        self.panning = s.get_panning();
-                    }
-                    None => {}
+
+                if !flags.contains(TriggerKeep::VOLUME) {
+                    self.volume = instr.volume;
                 }
+                self.panning = instr.panning;
 
                 if !flags.contains(TriggerKeep::PERIOD) {
                     self.period = period(self.freq_type, self.note);
@@ -490,7 +486,7 @@ impl Channel {
                 if !self.tremor_on {
                     volume = self.volume + self.tremolo_volume;
                     clamp(&mut volume);
-                    volume *= instr.envelope_volume_fadeout * instr.envelope_volume.value * instr.volume;
+                    volume *= instr.get_volume();
                 }
 
                 self.actual_volume[0] = volume * (1.0 - panning).sqrt();
@@ -887,12 +883,17 @@ impl Channel {
 }
 
 impl Iterator for Channel {
-    type Item = f32;
+    type Item = (f32, f32);
 
     // Was next_of_sample()
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.instr {
-            Some(i) => i.next(),
+            Some(i) => {
+                match i.next() {
+                    Some(fval) => Some((fval * self.actual_volume[0], fval * self.actual_volume[1])),
+                    None => None
+                }
+            },
             None => None,
         }
     }

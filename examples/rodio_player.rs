@@ -47,7 +47,7 @@ fn main() -> Result<(), std::io::Error> {
         Some(filename) => {
             Term::stdout().clear_screen().unwrap();
             println!("--===~ XmRs Player Example ~===--");
-            println!("(c) 2023 Sébastien Béchet\n");
+            println!("(c) 2023-2024 Sébastien Béchet\n");
             println!("Because demo scene can't die :)\n");
             // let path = std::env::current_dir()?;
             // println!("The current directory is {}", path.display());

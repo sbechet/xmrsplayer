@@ -41,6 +41,9 @@ pub struct StateInstrDefault {
 
     /// Current volume
     pub volume: f32,
+
+    /// Current panning
+    pub panning: f32,
 }
 
 impl StateInstrDefault {
@@ -59,6 +62,7 @@ impl StateInstrDefault {
             envelope_volume_fadeout: 1.0,
             envelope_panning: StateEnvelope::new(pe, 0.5),
             volume: 1.0,
+            panning: 0.5,
         }
     }
 
@@ -99,6 +103,10 @@ impl StateInstrDefault {
         if !self.instr.volume_envelope.enabled {
             self.cut_note();
         }
+    }
+
+    pub fn get_volume(&self) -> f32 {
+        self.envelope_volume_fadeout * self.envelope_volume.value * self.volume
     }
 
     pub fn envelopes(&mut self) {
@@ -145,10 +153,14 @@ impl StateInstrDefault {
         if num < self.instr.sample.len() {
             let sample = self.instr.sample[num].clone();
             let state_sample = StateSample::new(sample, self.rate);
+            self.panning = state_sample.get_panning();
+            self.volume = state_sample.get_volume();
             self.state_sample = Some(state_sample);
             return true;
         } else {
             self.state_sample = None;
+            self.panning = 0.5;
+            self.volume = 0.0;
             return false;
         }
     }
