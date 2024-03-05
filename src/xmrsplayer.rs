@@ -76,6 +76,12 @@ impl XmrsPlayer {
         self.debug = debug;
     }
 
+    pub fn set_mute_channel(&mut self, channel_num: usize, mute: bool) {
+        if channel_num < self.channel.len() {
+            self.channel[channel_num].muted = mute;
+        }
+    }
+
     pub fn set_max_loop_count(&mut self, max_loop_count: u8) {
         self.max_loop_count = max_loop_count;
     }
@@ -266,10 +272,10 @@ impl XmrsPlayer {
             self.row_loop_count[self.current_table_index as usize][self.current_row as usize] += 1;
         }
 
-        self.current_row += 1; /* Since this is an uint8, this line can
-                                * increment from 255 to 0, in which case it
-                                * is still necessary to go the next
-                                * pattern. */
+        self.current_row = self.current_row.wrapping_add(1); /* Since this is an u8, this line can
+                                                              * increment from 255 to 0, in which case it
+                                                              * is still necessary to go the next
+                                                              * pattern. */
         let pattern_len = self.module.pattern[pat_idx].len();
 
         if !self.position_jump
