@@ -24,7 +24,7 @@ struct Cli {
     filename: Option<String>,
 
     /// Choose amplification
-    #[arg(short = 'a', long, default_value = "0.25")]
+    #[arg(short = 'a', long, default_value = "0.5")]
     amplification: f32,
 
     /// Start at a specific pattern order table position

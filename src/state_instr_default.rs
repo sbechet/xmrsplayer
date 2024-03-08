@@ -1,6 +1,6 @@
 use crate::helper::*;
 use crate::{
-    state_envelope::StateEnvelope, state_sample::StateSample, state_vibrato::StateVibrato,
+    state_envelope::StateEnvelope, state_sample::StateSample, state_auto_vibrato::StateAutoVibrato,
 };
 /// An InstrDefault State
 use std::ops::Deref;
@@ -28,7 +28,7 @@ pub struct StateInstrDefault {
     /// Sample state
     pub state_sample: Option<StateSample>,
     /// Vibrato state
-    pub state_vibrato: StateVibrato,
+    pub state_vibrato: StateAutoVibrato,
     /// Volume Envelope state
     pub envelope_volume: StateEnvelope,
     // Volume sustained?
@@ -56,7 +56,7 @@ impl StateInstrDefault {
             rate,
             freq_type,
             state_sample: None,
-            state_vibrato: StateVibrato::new(v),
+            state_vibrato: StateAutoVibrato::new(v),
             envelope_volume: StateEnvelope::new(ve, 1.0),
             envelope_sustained: true,
             envelope_volume_fadeout: 1.0,
@@ -131,7 +131,7 @@ impl StateInstrDefault {
                     self.freq_type,
                     period,
                     note_offset,
-                    period_offset + self.state_vibrato.value,
+                    period_offset + self.state_vibrato.period_offset,
                 );
                 s.set_step(frequency)
             }
@@ -163,6 +163,11 @@ impl StateInstrDefault {
             self.volume = 0.0;
             return false;
         }
+    }
+
+    pub fn tick(&mut self) {
+        self.envelopes();
+        self.state_vibrato.tick(self.envelope_sustained);
     }
 }
 

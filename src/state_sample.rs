@@ -102,14 +102,19 @@ impl StateSample {
             }
             LoopType::Forward => {
                 self.position += self.step;
+
+                // while self.position >= loop_end as f32 {
+                //     self.position -= self.loop_length as f32;
+                // }
+
                 if self.position >= loop_end as f32 {
                     let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
                     self.position = self.sample.loop_start as f32 + delta;
                 }
                 /* sanity checking */
-                if self.position >= self.sample.len() as f32 {
-                    self.position = self.sample.len() as f32 - 1.0;
-                }
+                // if self.position >= self.sample.len() as f32 {
+                //     self.position = self.sample.len() as f32 - 1.0;
+                // }
 
                 let seek = if b >= loop_end {
                     self.sample.loop_start

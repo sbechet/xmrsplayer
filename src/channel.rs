@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
+use crate::state_vibratotremolo::StateVibratoTremolo;
 use xmrs::prelude::*;
 
 bitflags! {
@@ -59,22 +60,8 @@ pub struct Channel {
     /// How many loop passes have been done
     pub pattern_loop_count: u8,
 
-    vibrato_in_progress: bool,
-    /// True if a new note retriggers the waveform
-    vibrato_waveform_retrigger: bool,
-    vibrato_waveform: Waveform,
-    vibrato_depth: f32,
-    vibrato_speed: u16,
-    /// Position in the waveform
-    vibrato_step: u16,
-    vibrato_note_offset: f32,
-
-    tremolo_waveform_retrigger: bool,
-    tremolo_waveform: Waveform,
-    tremolo_depth: f32,
-    tremolo_speed: u16,
-    tremolo_counter: u16,
-    tremolo_volume: f32,
+    vibrato: StateVibratoTremolo,
+    tremolo: StateVibratoTremolo,
 
     tremor_param: u8,
     tremor_on: bool,
@@ -90,8 +77,6 @@ impl Channel {
             module,
             freq_type,
             rate,
-            vibrato_waveform_retrigger: true,
-            tremolo_waveform_retrigger: true,
             volume: 1.0,
             panning: 0.5,
             ..Default::default()
@@ -119,20 +104,6 @@ impl Channel {
             }
             None => self.cut_note(),
         }
-    }
-
-    fn vibrato(&mut self) {
-        self.vibrato_step = (self.vibrato_step + self.vibrato_speed) & 63;
-        self.vibrato_note_offset =
-            -2.0 * self.vibrato_waveform.waveform(self.vibrato_step) * self.vibrato_depth;
-    }
-
-    fn tremolo(&mut self) {
-        let step = (self.tremolo_counter * self.tremolo_speed) & 63;
-        /* Not so sure about this, it sounds correct by ear compared with
-         * MilkyTracker, but it could come from other bugs */
-        self.tremolo_volume = -1.0 * self.tremolo_waveform.waveform(step) * self.tremolo_depth;
-        self.tremolo_counter = (self.tremolo_counter + 1) & 63;
     }
 
     fn arpeggio(&mut self, current_tick: u16, tempo: u16, param: u8) {
@@ -239,6 +210,19 @@ impl Channel {
     }
 
     pub fn trigger_note(&mut self, flags: TriggerKeep) {
+        if self.vibrato.retrigger {
+            self.vibrato.pos = 0.0;
+        }
+
+        if self.tremolo.retrigger {
+            self.tremolo.pos = 0.0;
+        }
+
+        self.vibrato.offset = 0.0;
+        self.tremolo.offset = 0.0;
+        self.tremor_on = false;
+
+
         match &mut self.instr {
             Some(instr) => {
                 if !flags.contains(TriggerKeep::SAMPLE_POSITION) {
@@ -262,25 +246,13 @@ impl Channel {
                     instr.update_frequency(
                         self.period,
                         self.arp_note_offset as f32,
-                        self.vibrato_note_offset,
+                        self.vibrato.offset,
                     );
                 }
             }
             None => {}
         }
 
-        self.vibrato_note_offset = 0.0;
-        self.tremolo_volume = 0.0;
-        self.tremor_on = false;
-
-        if self.vibrato_waveform_retrigger {
-            self.vibrato_step = 0; /* XXX: should the waveform itself also
-                                    * be reset to sine? */
-        }
-
-        if self.tremolo_waveform_retrigger {
-            self.tremolo_counter = 0;
-        }
     }
 
     fn tick_effects(&mut self, current_tick: u16, tempo: u16) {
@@ -307,8 +279,8 @@ impl Channel {
             }
             4 if current_tick != 0 => {
                 /* 4xy: Vibrato */
-                self.vibrato_in_progress = true;
-                self.vibrato();
+                self.vibrato.in_progress = true;
+                self.vibrato.tick_vibrato();
             }
             5 if current_tick != 0 => {
                 /* 5xy: Tone portamento + Volume slide */
@@ -318,14 +290,14 @@ impl Channel {
             }
             6 if current_tick != 0 => {
                 /* 6xy: Vibrato + Volume slide */
-                self.vibrato_in_progress = true;
-                self.vibrato();
+                self.vibrato.in_progress = true;
+                self.vibrato.tick_vibrato();
                 let rawval = self.volume_slide_param;
                 self.volume_slide(rawval);
             }
             7 if current_tick != 0 => {
                 /* 7xy: Tremolo */
-                self.tremolo();
+                self.tremolo.tick_tremolo();
             }
             0xA if current_tick != 0 => {
                 /* Axy: Volume slide */
@@ -432,8 +404,8 @@ impl Channel {
             }
             0xB => {
                 /* V - Vibrato */
-                self.vibrato_in_progress = false;
-                self.vibrato();
+                self.vibrato.in_progress = false;
+                self.vibrato.tick_vibrato();
             }
             0xD => {
                 /* L - Panning slide left */
@@ -454,8 +426,7 @@ impl Channel {
     pub fn tick(&mut self, current_tick: u16, tempo: u16) {
         match &mut self.instr {
             Some(instr) => {
-                instr.envelopes();
-                instr.state_vibrato.tick();
+                instr.tick();
             }
             None => return,
         }
@@ -464,9 +435,9 @@ impl Channel {
             self.arp_in_progress = false;
             self.arp_note_offset = 0;
         }
-        if self.vibrato_in_progress && !self.current.has_vibrato() {
-            self.vibrato_in_progress = false;
-            self.vibrato_note_offset = 0.0;
+        if self.vibrato.in_progress && !self.current.has_vibrato() {
+            self.vibrato.in_progress = false;
+            self.vibrato.offset = 0.0;
         }
 
         if current_tick != 0 {
@@ -484,7 +455,7 @@ impl Channel {
                 let mut volume = 0.0;
 
                 if !self.tremor_on {
-                    volume = self.volume + self.tremolo_volume;
+                    volume = self.volume + self.tremolo.offset;
                     clamp(&mut volume);
                     volume *= instr.get_volume();
                 }
@@ -495,7 +466,7 @@ impl Channel {
                 instr.update_frequency(
                     self.period,
                     self.arp_note_offset as f32,
-                    self.vibrato_note_offset,
+                    self.vibrato.offset,
                 );
             }
             None => {}
@@ -526,11 +497,11 @@ impl Channel {
                 /* 4xy: Vibrato */
                 if self.current.effect_parameter & 0x0F != 0 {
                     /* Set vibrato depth */
-                    self.vibrato_depth = (self.current.effect_parameter & 0x0F) as f32 / 15.0;
+                    self.vibrato.depth = (self.current.effect_parameter & 0x0F) as f32 / 255.0;
                 }
                 if self.current.effect_parameter >> 4 != 0 {
                     /* Set vibrato speed */
-                    self.vibrato_speed = (self.current.effect_parameter >> 4) as u16;
+                    self.vibrato.speed = (self.current.effect_parameter >> 4) as f32 / 255.0;
                 }
             }
             0x5 => {
@@ -549,11 +520,11 @@ impl Channel {
                 /* 7xy: Tremolo */
                 if self.current.effect_parameter & 0x0F != 0 {
                     /* Set tremolo depth */
-                    self.tremolo_depth = (self.current.effect_parameter & 0x0F) as f32 / 15.0;
+                    self.tremolo.depth = (self.current.effect_parameter & 0x0F) as f32 / 255.0;
                 }
                 if self.current.effect_parameter >> 4 != 0 {
                     /* Set tremolo speed */
-                    self.tremolo_speed = (self.current.effect_parameter >> 4) as u16;
+                    self.tremolo.speed = (self.current.effect_parameter >> 4) as f32 / 255.0;
                 }
             }
             0x8 => {
@@ -614,10 +585,8 @@ impl Channel {
                     }
                     0x4 => {
                         /* E4y: Set vibrato control */
-                        self.vibrato_waveform =
-                            Waveform::try_from(self.current.effect_parameter & 3).unwrap();
-                        self.vibrato_waveform_retrigger =
-                            ((self.current.effect_parameter >> 2) & 1) == 0;
+                        self.vibrato.waveform = self.current.effect_parameter & 3;
+                        self.vibrato.retrigger = ((self.current.effect_parameter >> 2) & 1) == 0;
                     }
                     0x5 => {
                         /* E5y: Set finetune */
@@ -641,9 +610,8 @@ impl Channel {
                     }
                     0x7 => {
                         /* E7y: Set tremolo control */
-                        self.tremolo_waveform =
-                            Waveform::try_from(self.current.effect_parameter & 3).unwrap();
-                        self.tremolo_waveform_retrigger =
+                        self.tremolo.waveform = self.current.effect_parameter & 3;
+                        self.tremolo.retrigger =
                             ((self.current.effect_parameter >> 2) & 1) == 0;
                     }
                     0xA => {
@@ -762,7 +730,7 @@ impl Channel {
             // U - Fine volume slide up (0..15)
             0x9 => self.volume_slide(self.current.volume << 4),
             // S - Vibrato speed (0..15)
-            0xA => self.vibrato_speed = self.current.volume as u16 & 0x0F,
+            0xA => self.vibrato.speed = (self.current.volume & 0x0F) as f32 / 255.0,
             // V - Vibrato depth (0..15)
             0xB => {} // see tick() fn
             // P - Set panning (2,6,10,14..62)
@@ -872,7 +840,7 @@ impl Channel {
                 Some(instr) => instr.update_frequency(
                     self.period,
                     self.arp_note_offset as f32,
-                    self.vibrato_note_offset,
+                    self.vibrato.offset,
                 ),
                 None => {}
             }

@@ -1,8 +1,8 @@
 [package]
 name = "xmrsplayer"
-version = "0.2.5"
+version = "0.4.0"
 edition = "2021"
-description = "XMrsPlayer is a safe portage of libxm to play real music"
+description = "XMrsPlayer is a safe soundtracker music player"
 authors = ["Sebastien Bechet"]
 documentation = "https://docs.rs/xmrsplayer"
 repository = "https://codeberg.org/sbechet/xmrsplayer"
@@ -15,7 +15,7 @@ categories = ["multimedia::audio"]
 
 [dependencies]
 bitflags = "2.0"
-xmrs = "0.3"
+xmrs = "0.4"
 clap = { version = "^4.2", optional = true, features = ["cargo", "derive"] }
 rodio =  { version = "0.17", optional = true }
 console =  { version = "0.15.5", optional = true }
