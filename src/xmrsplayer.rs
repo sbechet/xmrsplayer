@@ -297,7 +297,7 @@ impl XmrsPlayer {
         }
 
         for ch in &mut self.channel {
-            ch.tick(self.current_tick, self.tempo);
+            ch.tick(self.current_tick);
 
             // Specific effect to slide global volume
             if ch.current.effect_type == 0x11 && self.current_tick != 0 {

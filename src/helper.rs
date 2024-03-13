@@ -152,15 +152,15 @@ pub fn amiga_frequency(period: f32) -> f32 {
 pub fn frequency(
     freq_type: FrequencyType,
     period: f32,
-    note_offset: f32,
+    arp_note: f32,
     period_offset: f32,
 ) -> f32 {
     match freq_type {
         FrequencyType::LinearFrequencies => {
-            linear_frequency(period - 64.0 * note_offset - 16.0 * period_offset)
+            linear_frequency(period - 64.0 * arp_note - 16.0 * period_offset)
         }
         FrequencyType::AmigaFrequencies => {
-            if note_offset == 0.0 {
+            if arp_note == 0.0 {
                 /* A chance to escape from insanity */
                 return amiga_frequency(period + 16.0 * period_offset);
             }
@@ -205,7 +205,7 @@ pub fn frequency(
 
             let note =
                 (12 * (octave + 2)) as f32 + a as f32 + inverse_lerp(p1 as f32, p2 as f32, period);
-            return amiga_frequency(amiga_period(note + note_offset) + 16.0 * period_offset);
+            return amiga_frequency(amiga_period(note + arp_note) + 16.0 * period_offset);
         }
     }
 }

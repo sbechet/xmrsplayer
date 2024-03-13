@@ -1,6 +1,9 @@
 use bitflags::bitflags;
 use std::sync::Arc;
 
+use crate::effect::*;
+use crate::effect_arpeggio::EffectArpeggio;
+
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
 use crate::state_vibratotremolo::StateVibratoTremolo;
@@ -36,8 +39,7 @@ pub struct Channel {
     // Instrument
     instr: Option<StateInstrDefault>,
 
-    arp_in_progress: bool,
-    arp_note_offset: u8,
+    effect_arpeggio: EffectArpeggio,
 
     volume_slide_param: u8,
     fine_volume_slide_param: u8,
@@ -106,40 +108,6 @@ impl Channel {
         }
     }
 
-    fn arpeggio(&mut self, current_tick: u16, tempo: u16, param: u8) {
-        let arp_offset = tempo % 3;
-        match current_tick {
-            1 if arp_offset == 2 => {
-                /* arp_offset==2: 0 -> x -> 0 -> y -> x -> … */
-                self.arp_in_progress = true;
-                self.arp_note_offset = param >> 4;
-            }
-            0 if arp_offset >= 1 => {
-                /* arp_offset==1: 0 -> 0 -> y -> x -> … */
-                self.arp_in_progress = false;
-                self.arp_note_offset = 0;
-            }
-            _ => {
-                /* 0 -> y -> x -> … */
-                let tick = current_tick - arp_offset;
-                match tick % 3 {
-                    0 => {
-                        self.arp_in_progress = false;
-                        self.arp_note_offset = 0;
-                    }
-                    2 => {
-                        self.arp_in_progress = true;
-                        self.arp_note_offset = param >> 4;
-                    }
-                    1 => {
-                        self.arp_in_progress = true;
-                        self.arp_note_offset = param & 0x0F;
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
 
     fn tone_portamento(&mut self) {
         /* 3xx called without a note, wait until we get an actual
@@ -245,7 +213,7 @@ impl Channel {
                     self.period = period(self.freq_type, self.note);
                     instr.update_frequency(
                         self.period,
-                        self.arp_note_offset as f32,
+                        self.effect_arpeggio.value(),
                         self.vibrato.offset,
                     );
                 }
@@ -255,12 +223,12 @@ impl Channel {
 
     }
 
-    fn tick_effects(&mut self, current_tick: u16, tempo: u16) {
+    fn tick_effects(&mut self, current_tick: u16) {
         match self.current.effect_type {
             0 => {
                 /* 0xy: Arpeggio */
                 if self.current.effect_parameter > 0 {
-                    self.arpeggio(current_tick, tempo, self.current.effect_parameter);
+                    self.effect_arpeggio.tick();
                 }
             }
             1 if current_tick != 0 => {
@@ -423,7 +391,7 @@ impl Channel {
         }
     }
 
-    pub fn tick(&mut self, current_tick: u16, tempo: u16) {
+    pub fn tick(&mut self, current_tick: u16) {
         match &mut self.instr {
             Some(instr) => {
                 instr.tick();
@@ -431,20 +399,11 @@ impl Channel {
             None => return,
         }
 
-        if self.arp_in_progress && !self.current.has_arpeggio() {
-            self.arp_in_progress = false;
-            self.arp_note_offset = 0;
-        }
-        if self.vibrato.in_progress && !self.current.has_vibrato() {
-            self.vibrato.in_progress = false;
-            self.vibrato.offset = 0.0;
-        }
-
         if current_tick != 0 {
             self.tick_volume_effects();
         }
 
-        self.tick_effects(current_tick, tempo);
+        self.tick_effects(current_tick);
 
         match &mut self.instr {
             Some(instr) => {
@@ -465,7 +424,7 @@ impl Channel {
 
                 instr.update_frequency(
                     self.period,
-                    self.arp_note_offset as f32,
+                    self.effect_arpeggio.value(),
                     self.vibrato.offset,
                 );
             }
@@ -475,6 +434,13 @@ impl Channel {
 
     fn tick0_effects(&mut self, noteu8: u8) {
         match self.current.effect_type {
+            0x0 => {
+                if self.current.effect_parameter > 0 {
+                    let v1 = (self.current.effect_parameter >> 4) as f32;
+                    let v2 = (self.current.effect_parameter & 0x0F) as f32;
+                    self.effect_arpeggio.tick0(v1, v2);
+                }
+            }
             0x1 => {
                 /* 1xx: Portamento up */
                 if self.current.effect_parameter > 0 {
@@ -829,6 +795,7 @@ impl Channel {
 
         // Effects
         self.tick0_effects(noteu8);
+
     }
 
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
@@ -836,10 +803,22 @@ impl Channel {
 
         if self.current.effect_type != 0xE || (self.current.effect_parameter >> 4) != 0xD {
             self.tick0_load_note_and_instrument();
+
+
+            if self.effect_arpeggio.in_progress() && !self.current.has_arpeggio() {
+                self.effect_arpeggio.retrigger();
+            }
+
+            if self.vibrato.in_progress && !self.current.has_vibrato() {
+                self.vibrato.in_progress = false;
+                self.vibrato.offset = 0.0;
+            }
+    
+
             match &mut self.instr {
                 Some(instr) => instr.update_frequency(
                     self.period,
-                    self.arp_note_offset as f32,
+                    self.effect_arpeggio.value(),
                     self.vibrato.offset,
                 ),
                 None => {}
