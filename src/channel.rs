@@ -3,10 +3,11 @@ use std::sync::Arc;
 
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;
+use crate::effect_portamento::EffectPortamento;
+use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
-use crate::state_vibratotremolo::StateVibratoTremolo;
 use xmrs::prelude::*;
 
 bitflags! {
@@ -23,7 +24,6 @@ bitflags! {
 #[derive(Clone, Default)]
 pub struct Channel {
     module: Arc<Module>,
-    freq_type: FrequencyType,
     rate: f32,
 
     note: f32,
@@ -46,15 +46,13 @@ pub struct Channel {
 
     panning_slide_param: u8,
 
-    portamento_up_param: u8,
-    portamento_down_param: u8,
-    fine_portamento_up_param: i8,
-    fine_portamento_down_param: i8,
-    extra_fine_portamento_up_param: i8,
-    extra_fine_portamento_down_param: i8,
-
-    tone_portamento_param: u8,
+    portamento: EffectPortamento,
+    portamento_fine: EffectPortamento,
+    portamento_extrafine: EffectPortamento,
+    porta_semitone_slides: bool,
+    tone_portamento_speed: f32,
     tone_portamento_target_period: f32,
+    
     multi_retrig_param: u8,
     note_delay_param: u8,
     /// Where to restart a E6y loop
@@ -62,8 +60,8 @@ pub struct Channel {
     /// How many loop passes have been done
     pub pattern_loop_count: u8,
 
-    vibrato: StateVibratoTremolo,
-    tremolo: StateVibratoTremolo,
+    vibrato: EffectVibratoTremolo,
+    tremolo: EffectVibratoTremolo,
 
     tremor_param: u8,
     tremor_on: bool,
@@ -74,13 +72,14 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(module: Arc<Module>, freq_type: FrequencyType, rate: f32) -> Self {
+    pub fn new(module: Arc<Module>, rate: f32) -> Self {
         Self {
             module,
-            freq_type,
             rate,
             volume: 1.0,
             panning: 0.5,
+            vibrato: EffectVibratoTremolo::vibrato(),
+            tremolo: EffectVibratoTremolo::tremolo(),
             ..Default::default()
         }
     }
@@ -108,23 +107,18 @@ impl Channel {
         }
     }
 
-
     fn tone_portamento(&mut self) {
         /* 3xx called without a note, wait until we get an actual
          * target note. */
         if self.tone_portamento_target_period == 0.0 {
             return;
         }
-
+        
         if self.period != self.tone_portamento_target_period {
-            let incr: f32 = match self.freq_type {
-                FrequencyType::LinearFrequencies => 4.0,
-                FrequencyType::AmigaFrequencies => 1.0,
-            };
             slide_towards(
                 &mut self.period,
                 self.tone_portamento_target_period,
-                incr * self.tone_portamento_param as f32,
+                self.tone_portamento_speed,
             );
         }
     }
@@ -165,29 +159,7 @@ impl Channel {
         }
     }
 
-    fn pitch_slide(&mut self, period_offset: i8) {
-        /* Don't ask about the 0.4 coefficient. I found mention of it
-         * nowhere. Found by ear™. */
-        self.period += if let FrequencyType::LinearFrequencies = self.freq_type {
-            period_offset as f32 * 4.0
-        } else {
-            period_offset as f32
-        };
-        clamp_down(&mut self.period);
-        /* XXX: upper bound of period ? */
-    }
-
-    pub fn trigger_note(&mut self, flags: TriggerKeep) {
-        if self.vibrato.retrigger {
-            self.vibrato.pos = 0.0;
-        }
-
-        if self.tremolo.retrigger {
-            self.tremolo.pos = 0.0;
-        }
-
-        self.vibrato.offset = 0.0;
-        self.tremolo.offset = 0.0;
+     pub fn trigger_note(&mut self, flags: TriggerKeep) {
         self.tremor_on = false;
 
 
@@ -210,11 +182,11 @@ impl Channel {
                 self.panning = instr.panning;
 
                 if !flags.contains(TriggerKeep::PERIOD) {
-                    self.period = period(self.freq_type, self.note);
+                    self.period = period(self.module.frequency_type, self.note);
                     instr.update_frequency(
                         self.period,
                         self.effect_arpeggio.value(),
-                        self.vibrato.offset,
+                        self.vibrato.value(),
                     );
                 }
             }
@@ -231,15 +203,21 @@ impl Channel {
                     self.effect_arpeggio.tick();
                 }
             }
-            1 if current_tick != 0 => {
+            0x1 => {
                 /* 1xx: Portamento up */
-                let period_offset = -(self.portamento_up_param as i8);
-                self.pitch_slide(period_offset);
+                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
+                    self.portamento.data.period = -p;
+                }
+                self.portamento.tick();
+                self.period = self.portamento.clamp(self.period);
             }
-            2 if current_tick != 0 => {
+            0x2 => {
                 /* 2xx: Portamento down */
-                let period_offset = self.portamento_down_param as i8;
-                self.pitch_slide(period_offset);
+                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
+                    self.portamento.data.period = p;
+                }
+                self.portamento.tick();
+                self.period = self.portamento.clamp(self.period);
             }
             3 if current_tick != 0 => {
                 /* 3xx: Tone portamento */
@@ -247,8 +225,7 @@ impl Channel {
             }
             4 if current_tick != 0 => {
                 /* 4xy: Vibrato */
-                self.vibrato.in_progress = true;
-                self.vibrato.tick_vibrato();
+                self.vibrato.tick();
             }
             5 if current_tick != 0 => {
                 /* 5xy: Tone portamento + Volume slide */
@@ -258,14 +235,13 @@ impl Channel {
             }
             6 if current_tick != 0 => {
                 /* 6xy: Vibrato + Volume slide */
-                self.vibrato.in_progress = true;
-                self.vibrato.tick_vibrato();
+                self.vibrato.tick();
                 let rawval = self.volume_slide_param;
                 self.volume_slide(rawval);
             }
             7 if current_tick != 0 => {
                 /* 7xy: Tremolo */
-                self.tremolo.tick_tremolo();
+                self.tremolo.tick();
             }
             0xA if current_tick != 0 => {
                 /* Axy: Volume slide */
@@ -372,8 +348,7 @@ impl Channel {
             }
             0xB => {
                 /* V - Vibrato */
-                self.vibrato.in_progress = false;
-                self.vibrato.tick_vibrato();
+                self.vibrato.tick();
             }
             0xD => {
                 /* L - Panning slide left */
@@ -414,7 +389,7 @@ impl Channel {
                 let mut volume = 0.0;
 
                 if !self.tremor_on {
-                    volume = self.volume + self.tremolo.offset;
+                    volume = self.volume + self.tremolo.value();
                     clamp(&mut volume);
                     volume *= instr.get_volume();
                 }
@@ -425,7 +400,7 @@ impl Channel {
                 instr.update_frequency(
                     self.period,
                     self.effect_arpeggio.value(),
-                    self.vibrato.offset,
+                    self.vibrato.value(),
                 );
             }
             None => {}
@@ -435,39 +410,25 @@ impl Channel {
     fn tick0_effects(&mut self, noteu8: u8) {
         match self.current.effect_type {
             0x0 => {
-                if self.current.effect_parameter > 0 {
-                    let v1 = (self.current.effect_parameter >> 4) as f32;
-                    let v2 = (self.current.effect_parameter & 0x0F) as f32;
-                    self.effect_arpeggio.tick0(v1, v2);
-                }
-            }
-            0x1 => {
-                /* 1xx: Portamento up */
-                if self.current.effect_parameter > 0 {
-                    self.portamento_up_param = self.current.effect_parameter;
-                }
-            }
-            0x2 => {
-                /* 2xx: Portamento down */
-                if self.current.effect_parameter > 0 {
-                    self.portamento_down_param = self.current.effect_parameter;
+                if let Some((v1, v2)) = EffectArpeggio::convert(self.current.effect_parameter, 0) {
+                    self.effect_arpeggio.tick0(v1.unwrap(), v2.unwrap());
                 }
             }
             0x3 => {
                 /* 3xx: Tone portamento */
-                if self.current.effect_parameter > 0 {
-                    self.tone_portamento_param = self.current.effect_parameter;
+                if self.current.effect_parameter != 0 {
+                    self.tone_portamento_speed = 4.0 * self.current.effect_parameter as f32;
                 }
             }
             0x4 => {
                 /* 4xy: Vibrato */
-                if self.current.effect_parameter & 0x0F != 0 {
-                    /* Set vibrato depth */
-                    self.vibrato.depth = (self.current.effect_parameter & 0x0F) as f32 / 255.0;
-                }
-                if self.current.effect_parameter >> 4 != 0 {
-                    /* Set vibrato speed */
-                    self.vibrato.speed = (self.current.effect_parameter >> 4) as f32 / 255.0;
+                if let Some((sspeed, sdepth)) = EffectVibratoTremolo::convert(self.current.effect_parameter, 0) {
+                    if let Some(speed) = sspeed {
+                        self.vibrato.data.speed = speed;
+                    }
+                    if let Some(depth) = sdepth {
+                        self.vibrato.data.depth = depth;
+                    }
                 }
             }
             0x5 => {
@@ -486,11 +447,11 @@ impl Channel {
                 /* 7xy: Tremolo */
                 if self.current.effect_parameter & 0x0F != 0 {
                     /* Set tremolo depth */
-                    self.tremolo.depth = (self.current.effect_parameter & 0x0F) as f32 / 255.0;
+                    self.tremolo.data.depth = (self.current.effect_parameter & 0x0F) as f32 / 255.0;
                 }
                 if self.current.effect_parameter >> 4 != 0 {
                     /* Set tremolo speed */
-                    self.tremolo.speed = (self.current.effect_parameter >> 4) as f32 / 255.0;
+                    self.tremolo.data.speed = (self.current.effect_parameter >> 4) as f32 / 255.0;
                 }
             }
             0x8 => {
@@ -534,25 +495,32 @@ impl Channel {
                 /* EXy: Extended command */
                 match self.current.effect_parameter >> 4 {
                     0x1 => {
-                        /* E1y: Fine portamento up */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_portamento_up_param =
-                                self.current.effect_parameter as i8 & 0x0F;
+                        /* E1y: Fine Portamento up */
+                        if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 1) {
+                            self.portamento_fine.data.period = -p;
                         }
-                        self.pitch_slide(-self.fine_portamento_up_param);
+                        self.portamento_fine.tick();
+                        self.period = self.portamento.clamp(self.period);
                     }
                     0x2 => {
                         /* E2y: Fine portamento down */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_portamento_down_param =
-                                self.current.effect_parameter as i8 & 0x0F;
+                        if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 1) {
+                            self.portamento_fine.data.period = p;
                         }
-                        self.pitch_slide(self.fine_portamento_down_param);
+                        self.portamento_fine.tick();
+                        self.period = self.portamento.clamp(self.period);
+                    }
+                    0x3 => {
+                        /* E3y: Set glissando control */
+                        // TODO, see FT2 setPortamentoCtrl
+                        self.porta_semitone_slides = self.current.effect_parameter != 0;
                     }
                     0x4 => {
                         /* E4y: Set vibrato control */
-                        self.vibrato.waveform = self.current.effect_parameter & 3;
-                        self.vibrato.retrigger = ((self.current.effect_parameter >> 2) & 1) == 0;
+                        self.vibrato.data.waveform = self.current.effect_parameter & 3;
+                        if ((self.current.effect_parameter >> 2) & 1) == 0 {
+                            self.vibrato.retrigger();
+                        }
                     }
                     0x5 => {
                         /* E5y: Set finetune */
@@ -566,7 +534,6 @@ impl Channel {
                                                 << 4)
                                                 as f32
                                                 / 128.0;
-                                        self.period = period(self.module.frequency_type, self.note);
                                     }
                                     None => {}
                                 },
@@ -576,9 +543,10 @@ impl Channel {
                     }
                     0x7 => {
                         /* E7y: Set tremolo control */
-                        self.tremolo.waveform = self.current.effect_parameter & 3;
-                        self.tremolo.retrigger =
-                            ((self.current.effect_parameter >> 2) & 1) == 0;
+                        self.tremolo.data.waveform = self.current.effect_parameter & 3;
+                        if ((self.current.effect_parameter >> 2) & 1) == 0 {
+                            self.tremolo.retrigger();
+                        }
                     }
                     0xA => {
                         /* EAy: Fine volume slide up */
@@ -659,19 +627,19 @@ impl Channel {
                 match self.current.effect_parameter >> 4 {
                     1 => {
                         /* X1y: Extra fine portamento up */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.extra_fine_portamento_up_param =
-                                self.current.effect_parameter as i8 & 0x0F;
+                        if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 2) {
+                            self.portamento_extrafine.data.period = -p;
                         }
-                        self.pitch_slide(-self.extra_fine_portamento_up_param);
+                        self.portamento_extrafine.tick();
+                        self.period = self.portamento.clamp(self.period);
                     }
                     2 => {
                         /* X2y: Extra fine portamento down */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.extra_fine_portamento_down_param =
-                                self.current.effect_parameter as i8 & 0x0F;
+                        if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 2) {
+                            self.portamento_extrafine.data.period = p;
                         }
-                        self.pitch_slide(self.extra_fine_portamento_down_param);
+                        self.portamento_extrafine.tick();
+                        self.period = self.portamento.clamp(self.period);
                     }
                     _ => {}
                 }
@@ -696,7 +664,7 @@ impl Channel {
             // U - Fine volume slide up (0..15)
             0x9 => self.volume_slide(self.current.volume << 4),
             // S - Vibrato speed (0..15)
-            0xA => self.vibrato.speed = (self.current.volume & 0x0F) as f32 / 255.0,
+            0xA => self.vibrato.data.speed = (self.current.volume & 0x0F) as f32 / 255.0,
             // V - Vibrato depth (0..15)
             0xB => {} // see tick() fn
             // P - Set panning (2,6,10,14..62)
@@ -711,11 +679,13 @@ impl Channel {
             0xE => {} // see tick() fn
             // M - Tone portamento (0..15)
             0xF => {
-                if self.current.volume & 0x0F != 0 {
-                    self.tone_portamento_param =
-                        ((self.current.volume & 0x0F) << 4) | (self.current.volume & 0x0F);
-                }
-                // see also tick() fn
+                // TODO: Check that
+                // if ! self.current.has_retrigger_note_empty() {
+                    if self.current.volume & 0x0F != 0 {
+                        self.tone_portamento_speed = 4.0 * (self.current.volume<<4) as f32;
+                    }
+                // }
+
             }
             _ => {}
         }
@@ -742,7 +712,7 @@ impl Channel {
                 if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
                     // only good instr
                     if id.sample.len() != 0 {
-                        let instr = StateInstrDefault::new(id.clone(), self.freq_type, self.rate);
+                        let instr = StateInstrDefault::new(id.clone(), self.module.frequency_type, self.rate);
                         self.instr = Some(instr);
                     }
                 } else {
@@ -810,8 +780,7 @@ impl Channel {
             }
 
             if self.vibrato.in_progress && !self.current.has_vibrato() {
-                self.vibrato.in_progress = false;
-                self.vibrato.offset = 0.0;
+                self.vibrato.retrigger();
             }
     
 
@@ -819,7 +788,7 @@ impl Channel {
                 Some(instr) => instr.update_frequency(
                     self.period,
                     self.effect_arpeggio.value(),
-                    self.vibrato.offset,
+                    self.vibrato.value(),
                 ),
                 None => {}
             }

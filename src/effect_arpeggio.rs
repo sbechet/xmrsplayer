@@ -1,5 +1,5 @@
 use core::default::Default;
-use crate::effect::EffectPlugin;
+use crate::effect::{EffectPlugin, EffectXM2EffectPlugin};
 
 
 #[derive(Clone, Default)]
@@ -49,4 +49,18 @@ impl EffectPlugin for EffectArpeggio {
         }
     }
 
+}
+
+
+
+impl EffectXM2EffectPlugin for EffectArpeggio {
+    fn convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
+        if param > 0 {
+            let v1 = (param >> 4) as f32;
+            let v2 = (param & 0x0F) as f32;
+            Some((Some(v1), Some(v2)))
+        } else {
+            None
+        }
+    }
 }

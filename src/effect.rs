@@ -1,5 +1,5 @@
 /**
- * In the effects implementation, we don't accept the original buffer overflow bugs
+ * In the effects implementation, we don't accept the original buffer overflow or other bugs
  * The idea here is not a 1:1 equivalence but a quality player.
  */
 pub enum GenericEffect<'a> {
@@ -14,4 +14,9 @@ pub trait EffectPlugin {
     fn in_progress(&self) -> bool;
     fn retrigger(&mut self) -> f32;
     fn value(&self) -> f32;
+}
+
+pub trait EffectXM2EffectPlugin {
+    /// special is used for specific abstraction case
+    fn convert(param: u8, special: u8) -> Option<(Option<f32>, Option<f32>)>;
 }

@@ -61,7 +61,7 @@ impl XmrsPlayer {
             jump_row: 0,
             extra_ticks: 0,
             channel: vec![
-                Channel::new(module.clone(), module.frequency_type, sample_rate);
+                Channel::new(module.clone(), sample_rate);
                 num_channels
             ],
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
