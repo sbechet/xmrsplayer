@@ -98,6 +98,13 @@ impl Channel {
         self.volume = 0.0;
     }
 
+    fn mult_if_freq_linear(&self) -> f32 {
+        match self.module.frequency_type {
+            FrequencyType::AmigaFrequencies => 1.0,
+            FrequencyType::LinearFrequencies => 4.0,
+        }
+    }
+
     fn key_off(&mut self) {
         match &mut self.instr {
             Some(i) => {
@@ -416,7 +423,8 @@ impl Channel {
                     self.tone_portamento.data.goal = period(self.module.frequency_type, self.note);
                 }
                 if let Some((Some(speed), None))= EffectTonePortamento::convert(self.current.effect_parameter, 0) {
-                    self.tone_portamento.data.speed = speed;
+                    let mult = self.mult_if_freq_linear();
+                    self.tone_portamento.data.speed = mult * speed;
                 }
                 self.tone_portamento.retrigger();
             }
@@ -687,7 +695,8 @@ impl Channel {
                         self.tone_portamento.data.goal = period(self.module.frequency_type, self.note);
                     }
                     if let Some((Some(speed), None))= EffectTonePortamento::convert(self.current.volume, 1) {
-                        self.tone_portamento.data.speed = speed;
+                        let mult = self.mult_if_freq_linear();
+                        self.tone_portamento.data.speed = mult * speed;
                     }
                     self.tone_portamento.retrigger();
                 // }
