@@ -133,7 +133,8 @@ impl StateSample {
                 if self.ping {
                     if self.position >= loop_end as f32 {
                         self.ping = false;
-                        let delta = (self.position - loop_end as f32) % self.sample.loop_length as f32;
+                        let delta =
+                            (self.position - loop_end as f32) % self.sample.loop_length as f32;
                         self.position = loop_end as f32 - delta;
                     }
                     /* sanity checking */
@@ -147,7 +148,8 @@ impl StateSample {
                 } else {
                     if self.position <= self.sample.loop_start as f32 {
                         self.ping = true;
-                        let delta = (self.sample.loop_start as f32 - self.position) % self.sample.loop_length as f32;
+                        let delta = (self.sample.loop_start as f32 - self.position)
+                            % self.sample.loop_length as f32;
                         self.position = self.sample.loop_start as f32 + delta;
                     }
                     /* sanity checking */
@@ -157,7 +159,11 @@ impl StateSample {
                     }
 
                     let v = u;
-                    let seek = if b == 1 || b - 2 <= self.sample.loop_start { a } else { b - 2 };
+                    let seek = if b == 1 || b - 2 <= self.sample.loop_start {
+                        a
+                    } else {
+                        b - 2
+                    };
                     u = self.sample.at(seek as usize);
                     v
                 }

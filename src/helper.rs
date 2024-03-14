@@ -149,12 +149,7 @@ pub fn amiga_frequency(period: f32) -> f32 {
     }
 }
 
-pub fn frequency(
-    freq_type: FrequencyType,
-    period: f32,
-    arp_note: f32,
-    period_offset: f32,
-) -> f32 {
+pub fn frequency(freq_type: FrequencyType, period: f32, arp_note: f32, period_offset: f32) -> f32 {
     match freq_type {
         FrequencyType::LinearFrequencies => {
             linear_frequency(period - 64.0 * arp_note - 16.0 * period_offset)

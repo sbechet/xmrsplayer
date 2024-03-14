@@ -10,11 +10,9 @@ pub mod effect_vibrato_tremolo;
 pub mod channel;
 pub mod helper;
 pub mod prelude;
+pub mod state_auto_vibrato;
 pub mod state_envelope;
 pub mod state_instr_default;
 pub mod state_sample;
-pub mod state_auto_vibrato;
 
 pub mod xmrsplayer;
-
-

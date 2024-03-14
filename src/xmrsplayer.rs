@@ -35,7 +35,7 @@ pub struct XmrsPlayer {
     max_loop_count: u8,
 
     /// None if next-one is a left sample, else right sample
-    right_sample: Option<f32>, 
+    right_sample: Option<f32>,
     debug: bool,
 }
 
@@ -60,10 +60,7 @@ impl XmrsPlayer {
             jump_dest: 0,
             jump_row: 0,
             extra_ticks: 0,
-            channel: vec![
-                Channel::new(module.clone(), sample_rate);
-                num_channels
-            ],
+            channel: vec![Channel::new(module.clone(), sample_rate); num_channels],
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             loop_count: 0,
             max_loop_count: 0,
@@ -175,8 +172,8 @@ impl XmrsPlayer {
                 /* Dxx: Pattern break */
                 /* Jump after playing this line */
                 self.pattern_break = true;
-                self.jump_row =
-                    (pattern_slot.effect_parameter >> 4) * 10 + (pattern_slot.effect_parameter & 0x0F);
+                self.jump_row = (pattern_slot.effect_parameter >> 4) * 10
+                    + (pattern_slot.effect_parameter & 0x0F);
             }
             0xE => {
                 /* EXy: Extended command */
@@ -203,7 +200,8 @@ impl XmrsPlayer {
                     }
                     0xE => {
                         /* EEy: Pattern delay */
-                        self.extra_ticks = (pattern_slot.effect_parameter & 0x0F) as u16 * self.tempo;
+                        self.extra_ticks =
+                            (pattern_slot.effect_parameter & 0x0F) as u16 * self.tempo;
                     }
                     _ => {}
                 }
@@ -250,7 +248,8 @@ impl XmrsPlayer {
             self.post_pattern_change();
         }
 
-        let pat_idx_temp: usize = self.module.pattern_order[self.current_table_index as usize] as usize;
+        let pat_idx_temp: usize =
+            self.module.pattern_order[self.current_table_index as usize] as usize;
         let pat_idx = if pat_idx_temp < self.module.pattern.len() {
             pat_idx_temp
         } else {

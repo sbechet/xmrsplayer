@@ -11,7 +11,6 @@ pub struct StateAutoVibrato {
     pub period_offset: f32,
 }
 
-
 impl StateAutoVibrato {
     pub fn new(vibrato: Arc<InstrVibrato>) -> Self {
         let mut sv = Self {

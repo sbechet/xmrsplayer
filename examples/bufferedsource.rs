@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 use rodio::Source;
-use std::sync::{Arc,Mutex};
+use std::sync::{Arc, Mutex};
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
 use xmrsplayer::xmrsplayer::XmrsPlayer;
@@ -51,7 +51,10 @@ impl Iterator for BufferedSource {
         self.buffer_index += 1;
 
         if self.buffer_index >= BUFFER_SIZE {
-            self.player.lock().unwrap().generate_samples(&mut self.buffer);
+            self.player
+                .lock()
+                .unwrap()
+                .generate_samples(&mut self.buffer);
             self.buffer_index = 0;
         }
 

@@ -2,12 +2,10 @@ use core::default::Default;
 
 use crate::effect::*;
 
-
 #[derive(Clone, Default)]
 pub struct Portamento {
     pub speed: f32,
 }
-
 
 #[derive(Clone, Default)]
 pub struct EffectPortamento {
@@ -21,7 +19,7 @@ impl EffectPortamento {
         match final_period {
             p if p < 1.0 => 1.0,
             p if p >= 32000.0 => 32000.0 - 1.0,
-            _ => final_period
+            _ => final_period,
         }
     }
 }
@@ -50,9 +48,7 @@ impl EffectPlugin for EffectPortamento {
     fn value(&self) -> f32 {
         self.value
     }
-
 }
-
 
 impl EffectXM2EffectPlugin for EffectPortamento {
     fn convert(param: u8, special: u8) -> Option<(Option<f32>, Option<f32>)> {
@@ -69,11 +65,9 @@ impl EffectXM2EffectPlugin for EffectPortamento {
                 // extra fin portamento
                 (1.0 / 4.0) * (param & 0x0F) as f32
             }
-            _ => {
-                param as f32
-            }
+            _ => param as f32,
         };
-        
+
         Some((Some(p), None))
     }
 }

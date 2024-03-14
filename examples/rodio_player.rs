@@ -1,7 +1,7 @@
 use clap::Parser;
 use console::{Key, Term};
 use rodio::Sink;
-use std::sync::{Arc,Mutex};
+use std::sync::{Arc, Mutex};
 
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;

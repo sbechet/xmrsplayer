@@ -1,6 +1,5 @@
 use crate::effect::*;
 
-
 #[derive(Default, Clone, Copy, Debug)]
 pub struct VibratoTremolo {
     pub waveform: u8,
@@ -18,23 +17,24 @@ impl VibratoTremolo {
     }
 
     fn waveform(&self, pos: f32) -> f32 {
-        let value = self.depth * match self.waveform {
-            0 => {
-                if pos < 1.0/3.0 {
-                    3.0 * pos
-                } else {
-                    (std::f32::consts::FRAC_PI_2 * (4.0/3.0 * (pos - 1.0/3.0))).sin() - 1.0
+        let value = self.depth
+            * match self.waveform {
+                0 => {
+                    if pos < 1.0 / 3.0 {
+                        3.0 * pos
+                    } else {
+                        (std::f32::consts::FRAC_PI_2 * (4.0 / 3.0 * (pos - 1.0 / 3.0))).sin() - 1.0
+                    }
                 }
-            },
-            1 => {
-                if pos < 0.5 {
-                    2.0 * pos
-                } else {
-                    1.0 - 2.0 * (pos - 0.5)
+                1 => {
+                    if pos < 0.5 {
+                        2.0 * pos
+                    } else {
+                        1.0 - 2.0 * (pos - 0.5)
+                    }
                 }
-            }
-            _ => 0.0
-        };
+                _ => 0.0,
+            };
 
         if pos < 0.5 {
             value
@@ -42,7 +42,6 @@ impl VibratoTremolo {
             -value
         }
     }
-
 }
 
 #[derive(Default, Clone, Copy, Debug)]
@@ -72,11 +71,9 @@ impl EffectVibratoTremolo {
     pub fn vibrato() -> Self {
         Self::new(VibratoTremolo::default(), false)
     }
-
 }
 
 impl EffectPlugin for EffectVibratoTremolo {
-
     /* param1: speed, param2:depth */
     fn tick0(&mut self, param1: f32, param2: f32) -> f32 {
         self.data.speed = param1;
@@ -84,7 +81,7 @@ impl EffectPlugin for EffectVibratoTremolo {
         self.retrigger()
     }
 
-    fn tick(&mut self) -> f32{
+    fn tick(&mut self) -> f32 {
         self.in_progress = true;
         self.value = self.data.waveform(self.pos);
         self.pos += self.data.speed;
@@ -112,15 +109,14 @@ impl EffectPlugin for EffectVibratoTremolo {
     }
 }
 
-
 impl EffectXM2EffectPlugin for EffectVibratoTremolo {
     fn convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if param > 0 {
             let depth = (param & 0x0F) as f32;
-            let depth = if depth!=0.0 { Some(depth) } else { None };
+            let depth = if depth != 0.0 { Some(depth) } else { None };
 
             let speed = (param >> 4) as f32;
-            let speed = if speed!=0.0 { Some(speed) } else { None };
+            let speed = if speed != 0.0 { Some(speed) } else { None };
 
             Some((speed, depth))
         } else {

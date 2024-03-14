@@ -1,6 +1,5 @@
-use core::default::Default;
 use crate::effect::{EffectPlugin, EffectXM2EffectPlugin};
-
+use core::default::Default;
 
 #[derive(Clone, Default)]
 pub struct Arpeggio {
@@ -8,14 +7,12 @@ pub struct Arpeggio {
     offset2: f32,
 }
 
-
 #[derive(Clone, Default)]
 pub struct EffectArpeggio {
     arpeggio: Arpeggio,
     tick: usize,
     in_progress: bool,
 }
-
 
 impl EffectPlugin for EffectArpeggio {
     fn tick0(&mut self, param1: f32, param2: f32) -> f32 {
@@ -36,7 +33,7 @@ impl EffectPlugin for EffectArpeggio {
     }
 
     fn retrigger(&mut self) -> f32 {
-        self.tick=0;
+        self.tick = 0;
         self.in_progress = false;
         self.value()
     }
@@ -48,10 +45,7 @@ impl EffectPlugin for EffectArpeggio {
             _ => 0.0,
         }
     }
-
 }
-
-
 
 impl EffectXM2EffectPlugin for EffectArpeggio {
     fn convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {

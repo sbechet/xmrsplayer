@@ -1,6 +1,6 @@
 use crate::helper::*;
 use crate::{
-    state_envelope::StateEnvelope, state_sample::StateSample, state_auto_vibrato::StateAutoVibrato,
+    state_auto_vibrato::StateAutoVibrato, state_envelope::StateEnvelope, state_sample::StateSample,
 };
 /// An InstrDefault State
 use std::ops::Deref;
