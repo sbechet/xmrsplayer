@@ -250,7 +250,15 @@ impl XmrsPlayer {
             self.post_pattern_change();
         }
 
-        let pat_idx: usize = self.module.pattern_order[self.current_table_index as usize] as usize;
+        let pat_idx_temp: usize = self.module.pattern_order[self.current_table_index as usize] as usize;
+        let pat_idx = if pat_idx_temp < self.module.pattern.len() {
+            pat_idx_temp
+        } else {
+            // empty pattern, returning to zero
+            self.current_table_index = 0;
+            self.module.pattern_order[self.current_table_index as usize] as usize
+        };
+
         let num_channels = self.module.get_num_channels();
         let mut in_a_loop = false;
 
