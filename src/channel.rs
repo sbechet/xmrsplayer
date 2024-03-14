@@ -113,7 +113,7 @@ impl Channel {
         if self.tone_portamento_target_period == 0.0 {
             return;
         }
-        
+
         if self.period != self.tone_portamento_target_period {
             slide_towards(
                 &mut self.period,
@@ -121,6 +121,10 @@ impl Channel {
                 self.tone_portamento_speed,
             );
         }
+
+        // if self.porta_semitone_slides {
+            // TODO: porta_semitone_slides: what can i do here?
+        // }
     }
 
     fn panning_slide(&mut self, rawval: u8) {
@@ -528,12 +532,10 @@ impl Channel {
                             match &mut self.instr {
                                 Some(i) => match &mut i.state_sample {
                                     Some(s) => {
-                                        self.note = noteu8 as f32 - 1.0
-                                            + s.relative_note as f32
-                                            + (((self.current.effect_parameter & 0x0F) as i8 - 8)
-                                                << 4)
-                                                as f32
-                                                / 128.0;
+                                        // replacing state_sample.get_finetuned_note()...
+                                        let finetune = ((self.current.effect_parameter & 0x0F) as i8 - 8) as f32 / 16.0;
+                                        let finetuned_note = s.relative_note as f32 + finetune;
+                                        self.note = noteu8 as f32 - 1.0 + finetuned_note
                                     }
                                     None => {}
                                 },

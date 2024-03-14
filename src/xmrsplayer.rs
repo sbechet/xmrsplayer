@@ -15,7 +15,7 @@ pub struct XmrsPlayer {
     pub amplification: f32,
     current_table_index: u16,
     current_row: u8,
-    current_tick: u16, /* Can go below 255, with high tempo and a pattern delay */
+    current_tick: u16,
     remaining_samples_in_tick: f32,
     /// +1 for a (left,right) sample
     pub generated_samples: u64,
@@ -210,12 +210,10 @@ impl XmrsPlayer {
             }
             0xF => {
                 /* Fxx: Set tempo/BPM */
-                if pattern_slot.effect_parameter > 0 {
-                    if pattern_slot.effect_parameter <= 0x1F {
-                        self.tempo = pattern_slot.effect_parameter as u16;
-                    } else {
-                        self.bpm = pattern_slot.effect_parameter as u16;
-                    }
+                if pattern_slot.effect_parameter < 32 {
+                    self.tempo = pattern_slot.effect_parameter as u16;
+                } else {
+                    self.bpm = pattern_slot.effect_parameter as u16;
                 }
             }
             0x10 => {
