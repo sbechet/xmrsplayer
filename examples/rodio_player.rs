@@ -90,6 +90,10 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
             println!("Debug on");
         }
         player_lock.debug(debug);
+        // player_lock.set_mute_channel(0, true);
+        // player_lock.set_mute_channel(1, true);
+        // player_lock.set_mute_channel(2, true);
+        // player_lock.set_mute_channel(3, true);
         player_lock.set_max_loop_count(loops);
         player_lock.goto(position, 0);
     }

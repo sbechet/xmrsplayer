@@ -5,7 +5,7 @@ use crate::effect::*;
 
 #[derive(Clone, Default)]
 pub struct Portamento {
-    pub period: f32,
+    pub speed: f32,
 }
 
 
@@ -27,23 +27,23 @@ impl EffectPortamento {
 }
 
 impl EffectPlugin for EffectPortamento {
-    fn tick0(&mut self, param1: f32, _param2: f32) -> f32 {
-        self.data.period = param1;
-        self.value = param1;
+    fn tick0(&mut self, speed: f32, _param2: f32) -> f32 {
+        self.data.speed = speed;
+        self.value = 0.0;
         self.value()
     }
 
     fn tick(&mut self) -> f32 {
-        self.value += self.data.period;
+        self.value += self.data.speed;
         self.value()
     }
 
     fn in_progress(&self) -> bool {
-        self.data.period != 0.0
+        self.data.speed != 0.0
     }
 
     fn retrigger(&mut self) -> f32 {
-        self.value = self.data.period;
+        self.value = 0.0;
         self.value()
     }
 
@@ -56,18 +56,24 @@ impl EffectPlugin for EffectPortamento {
 
 impl EffectXM2EffectPlugin for EffectPortamento {
     fn convert(param: u8, special: u8) -> Option<(Option<f32>, Option<f32>)> {
-        let mut p = param;
-        let mut m = 4.0;
-        match special {
-            1 => p &= 0x0F, // fine portamento
-            2 => m = 1.0,   // extra fin portamento
-            _ => {},
+        if param == 0 {
+            return None;
         }
 
-        if param != 0 {
-            Some((Some(m * p as f32), None))
-        } else {
-            None
-        }
+        let p = match special {
+            1 => {
+                // fine portamento
+                (param & 0x0F) as f32
+            }
+            2 => {
+                // extra fin portamento
+                (1.0 / 4.0) * (param & 0x0F) as f32
+            }
+            _ => {
+                param as f32
+            }
+        };
+        
+        Some((Some(p), None))
     }
 }

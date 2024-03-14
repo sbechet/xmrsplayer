@@ -4,6 +4,7 @@ use std::sync::Arc;
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;
 use crate::effect_portamento::EffectPortamento;
+use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 
 use crate::helper::*;
@@ -49,9 +50,8 @@ pub struct Channel {
     portamento: EffectPortamento,
     portamento_fine: EffectPortamento,
     portamento_extrafine: EffectPortamento,
+    tone_portamento: EffectTonePortamento,
     porta_semitone_slides: bool,
-    tone_portamento_speed: f32,
-    tone_portamento_target_period: f32,
     
     multi_retrig_param: u8,
     note_delay_param: u8,
@@ -105,26 +105,6 @@ impl Channel {
             }
             None => self.cut_note(),
         }
-    }
-
-    fn tone_portamento(&mut self) {
-        /* 3xx called without a note, wait until we get an actual
-         * target note. */
-        if self.tone_portamento_target_period == 0.0 {
-            return;
-        }
-
-        if self.period != self.tone_portamento_target_period {
-            slide_towards(
-                &mut self.period,
-                self.tone_portamento_target_period,
-                self.tone_portamento_speed,
-            );
-        }
-
-        // if self.porta_semitone_slides {
-            // TODO: porta_semitone_slides: what can i do here?
-        // }
     }
 
     fn panning_slide(&mut self, rawval: u8) {
@@ -207,25 +187,23 @@ impl Channel {
                     self.effect_arpeggio.tick();
                 }
             }
-            0x1 => {
+            1 => {
                 /* 1xx: Portamento up */
-                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
-                    self.portamento.data.period = -p;
-                }
                 self.portamento.tick();
                 self.period = self.portamento.clamp(self.period);
             }
-            0x2 => {
+            2 => {
                 /* 2xx: Portamento down */
-                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
-                    self.portamento.data.period = p;
-                }
                 self.portamento.tick();
                 self.period = self.portamento.clamp(self.period);
             }
             3 if current_tick != 0 => {
                 /* 3xx: Tone portamento */
-                self.tone_portamento();
+                self.tone_portamento.tick();
+                self.period = self.tone_portamento.clamp(self.period);
+                if self.porta_semitone_slides {
+                    // TODO: porta_semitone_slides: what can i do here?
+                }
             }
             4 if current_tick != 0 => {
                 /* 4xy: Vibrato */
@@ -233,7 +211,7 @@ impl Channel {
             }
             5 if current_tick != 0 => {
                 /* 5xy: Tone portamento + Volume slide */
-                self.tone_portamento();
+                self.tone_portamento.tick();
                 let rawval = self.volume_slide_param;
                 self.volume_slide(rawval);
             }
@@ -364,7 +342,7 @@ impl Channel {
             }
             0xF => {
                 /* M - Tone portamento */
-                self.tone_portamento();
+                self.tone_portamento.tick();
             }
             _ => {}
         }
@@ -418,11 +396,29 @@ impl Channel {
                     self.effect_arpeggio.tick0(v1.unwrap(), v2.unwrap());
                 }
             }
+            0x1 => {
+                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
+                    self.portamento.tick0(-p, 0.0);
+                } else {
+                    self.portamento.retrigger();
+                }
+            }
+            0x2 => {
+                if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 0) {
+                    self.portamento.tick0(p, 0.0);
+                } else {
+                    self.portamento.retrigger();
+                }
+            }
             0x3 => {
                 /* 3xx: Tone portamento */
-                if self.current.effect_parameter != 0 {
-                    self.tone_portamento_speed = 4.0 * self.current.effect_parameter as f32;
+                if self.note != 0.0 {
+                    self.tone_portamento.data.goal = period(self.module.frequency_type, self.note);
                 }
+                if let Some((Some(speed), None))= EffectTonePortamento::convert(self.current.effect_parameter, 0) {
+                    self.tone_portamento.data.speed = speed;
+                }
+                self.tone_portamento.retrigger();
             }
             0x4 => {
                 /* 4xy: Vibrato */
@@ -501,18 +497,20 @@ impl Channel {
                     0x1 => {
                         /* E1y: Fine Portamento up */
                         if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 1) {
-                            self.portamento_fine.data.period = -p;
+                            self.portamento_fine.tick0(-p, 0.0);
                         }
+                        self.portamento_fine.retrigger();
                         self.portamento_fine.tick();
-                        self.period = self.portamento.clamp(self.period);
+                        self.period = self.portamento_fine.clamp(self.period);
                     }
                     0x2 => {
                         /* E2y: Fine portamento down */
                         if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 1) {
-                            self.portamento_fine.data.period = p;
+                            self.portamento_fine.tick0(p, 0.0);
                         }
+                        self.portamento_fine.retrigger();
                         self.portamento_fine.tick();
-                        self.period = self.portamento.clamp(self.period);
+                        self.period = self.portamento_fine.clamp(self.period);
                     }
                     0x3 => {
                         /* E3y: Set glissando control */
@@ -630,18 +628,20 @@ impl Channel {
                     1 => {
                         /* X1y: Extra fine portamento up */
                         if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 2) {
-                            self.portamento_extrafine.data.period = -p;
+                            self.portamento_extrafine.tick0(-p, 0.0);
                         }
+                        self.portamento_extrafine.retrigger();
                         self.portamento_extrafine.tick();
-                        self.period = self.portamento.clamp(self.period);
+                        self.period = self.portamento_extrafine.clamp(self.period);
                     }
                     2 => {
                         /* X2y: Extra fine portamento down */
                         if let Some((Some(p), None))= EffectPortamento::convert(self.current.effect_parameter, 2) {
-                            self.portamento_extrafine.data.period = p;
+                            self.portamento_extrafine.tick0(p, 0.0);
                         }
+                        self.portamento_extrafine.retrigger();
                         self.portamento_extrafine.tick();
-                        self.period = self.portamento.clamp(self.period);
+                        self.period = self.portamento_extrafine.clamp(self.period);
                     }
                     _ => {}
                 }
@@ -683,11 +683,14 @@ impl Channel {
             0xF => {
                 // TODO: Check that
                 // if ! self.current.has_retrigger_note_empty() {
-                    if self.current.volume & 0x0F != 0 {
-                        self.tone_portamento_speed = 4.0 * (self.current.volume<<4) as f32;
+                    if self.note != 0.0 {
+                        self.tone_portamento.data.goal = period(self.module.frequency_type, self.note);
                     }
+                    if let Some((Some(speed), None))= EffectTonePortamento::convert(self.current.volume, 1) {
+                        self.tone_portamento.data.speed = speed;
+                    }
+                    self.tone_portamento.retrigger();
                 // }
-
             }
             _ => {}
         }
@@ -699,7 +702,6 @@ impl Channel {
         // First, load instr
         if self.current.instrument > 0 {
             if self.current.has_tone_portamento() {
-                /* Tone portamento in effect, unclear stuff happens */
                 self.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
@@ -732,8 +734,6 @@ impl Channel {
                             Some(s) => {
                                 if s.is_enabled() {
                                     self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
-                                    self.tone_portamento_target_period =
-                                        period(self.module.frequency_type, self.note);
                                 } else {
                                     self.cut_note();
                                 }
