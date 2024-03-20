@@ -79,6 +79,12 @@ impl XmrsPlayer {
         }
     }
 
+    pub fn mute_all(&mut self, mute: bool) {
+        for c in &mut self.channel {
+            c.muted = mute;
+        }
+    }
+
     pub fn set_max_loop_count(&mut self, max_loop_count: u8) {
         self.max_loop_count = max_loop_count;
     }
