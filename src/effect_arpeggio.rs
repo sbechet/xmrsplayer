@@ -9,15 +9,15 @@ pub struct Arpeggio {
 
 #[derive(Clone, Default)]
 pub struct EffectArpeggio {
-    arpeggio: Arpeggio,
+    data: Arpeggio,
     tick: usize,
     in_progress: bool,
 }
 
 impl EffectPlugin for EffectArpeggio {
     fn tick0(&mut self, param1: f32, param2: f32) -> f32 {
-        self.arpeggio.offset1 = param1;
-        self.arpeggio.offset2 = param2;
+        self.data.offset1 = param1;
+        self.data.offset2 = param2;
         self.tick = 0;
         self.value()
     }
@@ -38,23 +38,33 @@ impl EffectPlugin for EffectArpeggio {
         self.value()
     }
 
+    fn clamp(&self, _value: f32) -> f32 {
+        self.value()
+    }
+
     fn value(&self) -> f32 {
         match self.tick {
-            1 => self.arpeggio.offset1,
-            2 => self.arpeggio.offset2,
+            1 => self.data.offset1,
+            2 => self.data.offset2,
             _ => 0.0,
         }
     }
 }
 
 impl EffectXM2EffectPlugin for EffectArpeggio {
-    fn convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
+    fn xm_convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if param > 0 {
             let v1 = (param >> 4) as f32;
             let v2 = (param & 0x0F) as f32;
             Some((Some(v1), Some(v2)))
         } else {
             None
+        }
+    }
+
+    fn xm_update_effect(&mut self, param: u8, _special1: u8, _special2: f32) {
+        if let Some((v1, v2)) = Self::xm_convert(param, 0) {
+            self.tick0(v1.unwrap(), v2.unwrap());
         }
     }
 }

@@ -108,12 +108,13 @@ pub fn slide_towards(val: &mut f32, goal: f32, incr: f32) {
 
 #[inline(always)]
 pub fn linear_period(note: f32) -> f32 {
-    7680.0 - note * 64.0
+    64.0 * (10.0 * 12.0 - note)
 }
 
 #[inline(always)]
 pub fn linear_frequency(period: f32) -> f32 {
-    8363.0 * (2.0f32).powf((4608.0 - period) / 768.0)
+    // 8363.0 is historical amiga module sample frequency
+    8363.0 * (2.0f32).powf((64.0 * 6.0 * 12.0 - period) / (64.0 * 12.0))
 }
 
 pub fn amiga_period(note: f32) -> f32 {

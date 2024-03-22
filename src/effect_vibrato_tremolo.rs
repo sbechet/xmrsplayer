@@ -16,31 +16,30 @@ impl VibratoTremolo {
         }
     }
 
+    // return depth * (-1..1)
     fn waveform(&self, pos: f32) -> f32 {
         let value = self.depth
             * match self.waveform {
-                0 => {
-                    if pos < 1.0 / 3.0 {
-                        3.0 * pos
-                    } else {
-                        (std::f32::consts::FRAC_PI_2 * (4.0 / 3.0 * (pos - 1.0 / 3.0))).sin() - 1.0
-                    }
-                }
+                0 => (std::f32::consts::TAU * pos).sin(),
                 1 => {
-                    if pos < 0.5 {
-                        2.0 * pos
+                    if pos < 0.25 {
+                        4.0 * pos
+                    } else if pos < 0.75 {
+                        - 4.0 * (pos - 0.25) + 1.0
                     } else {
-                        1.0 - 2.0 * (pos - 0.5)
+                        4.0 * (pos - 0.75) - 1.0
                     }
                 }
-                _ => 0.0,
+                _ => {
+                    if pos < 0.5 {
+                        -1.0
+                    } else {
+                        1.0
+                    }
+                }
             };
 
-        if pos < 0.5 {
-            value
-        } else {
-            -value
-        }
+        value
     }
 }
 
@@ -100,6 +99,10 @@ impl EffectPlugin for EffectVibratoTremolo {
         self.value
     }
 
+    fn clamp(&self, value: f32) -> f32 {
+        value
+    }
+
     fn value(&self) -> f32 {
         if self.is_tremolo {
             self.value / 2.0
@@ -110,17 +113,35 @@ impl EffectPlugin for EffectVibratoTremolo {
 }
 
 impl EffectXM2EffectPlugin for EffectVibratoTremolo {
-    fn convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
+    fn xm_convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if param > 0 {
-            let depth = (param & 0x0F) as f32;
+            let depth = (param & 0x0F) as f32 / 16.0;
             let depth = if depth != 0.0 { Some(depth) } else { None };
 
-            let speed = (param >> 4) as f32;
+            let speed = ((param & 0xF0) >> 2) as f32 / 60.0;
             let speed = if speed != 0.0 { Some(speed) } else { None };
 
             Some((speed, depth))
         } else {
             None
+        }
+    }
+
+    fn xm_update_effect(&mut self, param: u8, volcolumn: u8, _special2: f32) {
+        if volcolumn == 0 {
+            if let Some((sspeed, sdepth)) = EffectVibratoTremolo::xm_convert(param, 0) {
+                if let Some(speed) = sspeed {
+                    self.data.speed = speed;
+                }
+                if let Some(depth) = sdepth {
+                    self.data.depth = depth;
+                }
+            }
+        } else {
+            let vol_data = param as f32 * 4.0 / 60.0;
+            if vol_data != 0.0 {
+                self.data.speed = vol_data;
+            }
         }
     }
 }
