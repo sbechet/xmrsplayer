@@ -21,32 +21,6 @@ pub static AMIGA_PERIODS: [usize; 13] = [
     856 * AMIGA_PERIOD_SCALE,  // C-3
 ];
 
-pub static MULTI_RETRIG_ADD: [f32; 16] = [
-    0.0, -1.0, -2.0, -4.0, /* 0, 1, 2, 3 */
-    -8.0, -16.0, 0.0, 0.0, /* 4, 5, 6, 7 */
-    0.0, 1.0, 2.0, 4.0, /* 8, 9, A, B */
-    8.0, 16.0, 0.0, 0.0, /* C, D, E, F */
-];
-
-pub static MULTI_RETRIG_MULTIPLY: [f32; 16] = [
-    1.0,
-    1.0,
-    1.0,
-    1.0, /* 0, 1, 2, 3 */
-    1.0,
-    1.0,
-    2.0 / 3.0,
-    0.5, /* 4, 5, 6, 7 */
-    1.0,
-    1.0,
-    1.0,
-    1.0, /* 8, 9, A, B */
-    1.0,
-    1.0,
-    1.50,
-    2.0, /* C, D, E, F */
-];
-
 #[inline(always)]
 pub fn note_is_valid(n: u8) -> bool {
     n > 0 && n < 97

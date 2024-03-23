@@ -44,21 +44,18 @@ impl StateAutoVibrato {
 
     pub fn tick(&mut self, sustained: bool) {
         if self.vibrato.depth > 0.0 {
-            let mut amp = self.amp;
-            if self.vibrato.sweep > 0.0 {
-                amp = self.vibrato.sweep;
-                if sustained {
-                    amp = if self.amp > self.vibrato.depth {
-                        self.sweep = 0.0;
-                        self.vibrato.depth
-                    } else {
-                        self.amp + self.vibrato.sweep
-                    };
-                    self.amp = amp;
+            self.amp = if sustained {
+                if self.amp + self.sweep > self.vibrato.depth {
+                    self.sweep = 0.0;
+                    self.vibrato.depth
+                } else {
+                    self.amp + self.sweep
                 }
-            }
+            } else {
+                self.amp
+            };
             self.pos += self.vibrato.speed;
-            self.period_offset = amp * self.vibrato.waveform.value(self.pos);
+            self.period_offset = self.amp * self.vibrato.waveform.value(self.pos);
         }
     }
 }

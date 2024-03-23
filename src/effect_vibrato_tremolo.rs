@@ -25,7 +25,7 @@ impl VibratoTremolo {
                     if pos < 0.25 {
                         4.0 * pos
                     } else if pos < 0.75 {
-                        - 4.0 * (pos - 0.25) + 1.0
+                        -4.0 * (pos - 0.25) + 1.0
                     } else {
                         4.0 * (pos - 0.75) - 1.0
                     }
