@@ -283,8 +283,7 @@ impl Channel {
             }
             0x19 if current_tick != 0 => {
                 /* Pxy: Panning slide */
-                let rawval = self.panning_slide_param;
-                self.panning_slide(rawval);
+                self.panning_slide(self.panning_slide_param);
             }
             0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
@@ -563,7 +562,9 @@ impl Channel {
                 match &mut self.instr {
                     Some(i) => {
                         i.envelope_volume.counter = self.current.effect_parameter as u16;
-                        i.envelope_panning.counter = self.current.effect_parameter as u16;
+                        if i.sustained {
+                            i.envelope_panning.counter = self.current.effect_parameter as u16;
+                        }
                     }
                     None => {}
                 }

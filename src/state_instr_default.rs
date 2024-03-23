@@ -31,13 +31,13 @@ pub struct StateInstrDefault {
     pub state_vibrato: StateAutoVibrato,
     /// Volume Envelope state
     pub envelope_volume: StateEnvelope,
-    // Volume sustained?
-    envelope_sustained: bool,
-    /// Volume fadeout value
-    pub envelope_volume_fadeout: f32,
-
     /// Panning Envelope state
     pub envelope_panning: StateEnvelope,
+
+    // Volume sustained?
+    pub sustained: bool,
+    /// Volume fadeout value
+    pub volume_fadeout: f32,
 
     /// Current volume
     pub volume: f32,
@@ -58,9 +58,9 @@ impl StateInstrDefault {
             state_sample: None,
             state_vibrato: StateAutoVibrato::new(v),
             envelope_volume: StateEnvelope::new(ve, 1.0),
-            envelope_sustained: true,
-            envelope_volume_fadeout: 1.0,
             envelope_panning: StateEnvelope::new(pe, 0.5),
+            sustained: true,
+            volume_fadeout: 1.0,
             volume: 1.0,
             panning: 0.5,
         }
@@ -81,8 +81,8 @@ impl StateInstrDefault {
     }
 
     pub fn envelopes_reset(&mut self) {
-        self.envelope_sustained = true;
-        self.envelope_volume_fadeout = 1.0;
+        self.sustained = true;
+        self.volume_fadeout = 1.0;
         self.envelope_volume.reset();
         self.envelope_panning.reset();
     }
@@ -97,7 +97,7 @@ impl StateInstrDefault {
 
     pub fn key_off(&mut self) {
         /* Key Off */
-        self.envelope_sustained = false;
+        self.sustained = false;
 
         /* If no volume envelope is used, also cut the note */
         if !self.instr.volume_envelope.enabled {
@@ -106,21 +106,21 @@ impl StateInstrDefault {
     }
 
     pub fn get_volume(&self) -> f32 {
-        self.envelope_volume_fadeout * self.envelope_volume.value * self.volume
+        self.volume_fadeout * self.envelope_volume.value * self.volume
     }
 
     pub fn envelopes(&mut self) {
         // Volume
         if self.volume_envelope.enabled {
-            if !self.envelope_sustained {
-                self.envelope_volume_fadeout -= self.instr.volume_fadeout;
-                clamp_down(&mut self.envelope_volume_fadeout);
+            if !self.sustained {
+                self.volume_fadeout -= self.instr.volume_fadeout;
+                clamp_down(&mut self.volume_fadeout);
             }
-            self.envelope_volume.tick(self.envelope_sustained);
+            self.envelope_volume.tick(self.sustained);
         }
         // Panning
         if self.panning_envelope.enabled {
-            self.envelope_panning.tick(self.envelope_sustained);
+            self.envelope_panning.tick(self.sustained);
         }
     }
 
@@ -167,7 +167,7 @@ impl StateInstrDefault {
 
     pub fn tick(&mut self) {
         self.envelopes();
-        self.state_vibrato.tick(self.envelope_sustained);
+        self.state_vibrato.tick(self.sustained);
     }
 }
 
