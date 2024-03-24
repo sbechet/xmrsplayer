@@ -140,7 +140,7 @@ impl EffectXM2EffectPlugin for EffectVibratoTremolo {
             }
         } else {
             // from 0..15 to 0..63 then to 0..1.0
-            let vol_data = param as f32 * 4.0 / 63.0;
+            let vol_data = param as f32 * 4.0 / 64.0;
             if vol_data != 0.0 {
                 self.data.speed = vol_data;
             }
