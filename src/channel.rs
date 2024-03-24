@@ -234,14 +234,12 @@ impl Channel {
                     }
                     0xC => {
                         /* ECy: Note cut */
-                        //TODO? If y is greater than or equal to the current module Speed, this command is ignored. 
                         if (self.current.effect_parameter as u16 & 0x0F) == current_tick {
                             self.cut_note();
                         }
                     }
                     0xD => {
                         /* EDy: Note delay */
-                        //TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played. 
                         if self.note_delay_param as u16 == current_tick {
                             self.tick0_load_note_and_instrument();
                             match &mut self.instr {
@@ -301,12 +299,14 @@ impl Channel {
         match self.current.volume >> 4 {
             0x6 => {
                 /* - - Volume slide down */
-                self.volume_slide.xm_update_effect(self.current.volume, 2, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.volume, 2, 0.0);
                 self.volume += self.volume_slide.tick();
             }
             0x7 => {
                 /* + - Volume slide up */
-                self.volume_slide.xm_update_effect(self.current.volume, 1, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.volume, 1, 0.0);
                 self.volume += self.volume_slide.tick();
             }
             0xB => {
@@ -324,6 +324,7 @@ impl Channel {
             0xF => {
                 /* M - Tone portamento */
                 self.tone_portamento.tick();
+                self.period = self.tone_portamento.clamp(self.period);
             }
             _ => {}
         }
@@ -378,14 +379,15 @@ impl Channel {
                 .portamento
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x3 => {
-                let mult = if let FrequencyType::LinearFrequencies = self.module.frequency_type {
+                let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
+                {
                     1
                 } else {
                     0
                 };
                 self.tone_portamento.xm_update_effect(
                     self.current.effect_parameter,
-                    mult,
+                    freq_type,
                     self.note,
                 );
             }
@@ -394,11 +396,13 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x5 => {
                 /* 5xy: Tone portamento + Volume slide */
-                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
             }
             0x6 => {
                 /* 6xy: Vibrato + Volume slide */
-                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
             }
             0x7 => self
                 .tremolo
@@ -428,7 +432,8 @@ impl Channel {
             }
             0xA => {
                 /* Axy: Volume slide */
-                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
             }
             0xC => {
                 /* Cxx: Set volume */
@@ -463,11 +468,11 @@ impl Channel {
                     }
                     0x3 => {
                         /* E3y: Set glissando control */
-                        // TODO, see FT2 setPortamentoCtrl
                         self.porta_semitone_slides = self.current.effect_parameter != 0;
                     }
                     0x4 => {
                         /* E4y: Set vibrato control */
+                        // TODO: more abstraction to be done one day here!
                         self.vibrato.data.waveform = self.current.effect_parameter & 3;
                         if ((self.current.effect_parameter >> 2) & 1) == 0 {
                             self.vibrato.retrigger();
@@ -501,17 +506,25 @@ impl Channel {
                     }
                     0xA => {
                         /* EAy: Fine volume slide up */
-                        self.volume_slide_tick0.xm_update_effect(self.current.effect_parameter,1, 0.0);
+                        self.volume_slide_tick0.xm_update_effect(
+                            self.current.effect_parameter,
+                            1,
+                            0.0,
+                        );
                         self.volume += self.volume_slide_tick0.tick();
                     }
                     0xB => {
                         /* EBy: Fine volume slide down */
-                        self.volume_slide_tick0.xm_update_effect(self.current.effect_parameter,2, 0.0);
+                        self.volume_slide_tick0.xm_update_effect(
+                            self.current.effect_parameter,
+                            2,
+                            0.0,
+                        );
                         self.volume += self.volume_slide_tick0.tick();
                     }
                     0xD => {
                         /* EDy: Note delay */
-                        // TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played. 
+                        // TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played.
                         /* XXX: figure this out better. EDy triggers
                          * the note even when there no note and no
                          * instrument. But ED0 acts like like a ghost
@@ -608,12 +621,14 @@ impl Channel {
             0x7 => {} // see tick() fn
             // D - Fine volume slide down (0..15)
             0x8 => {
-                self.volume_slide.xm_update_effect(self.current.volume, 2, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.volume, 2, 0.0);
                 self.volume += self.volume_slide.tick();
             }
             // U - Fine volume slide up (0..15)
             0x9 => {
-                self.volume_slide.xm_update_effect(self.current.volume, 1, 0.0);
+                self.volume_slide
+                    .xm_update_effect(self.current.volume, 1, 0.0);
                 self.volume += self.volume_slide.tick();
             }
             // S - Vibrato speed (0..15)
@@ -628,19 +643,17 @@ impl Channel {
             0xE => {} // see tick() fn
             // M - Tone portamento (0..15)
             0xF => {
-                // TODO: Check that
-                // if ! self.current.has_retrigger_note_empty() {
-                let mult = if let FrequencyType::LinearFrequencies = self.module.frequency_type {
+                let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
+                {
                     1
                 } else {
                     0
                 };
                 self.tone_portamento.xm_update_effect(
                     self.current.volume & 0x0F,
-                    2 | mult,
+                    16 | freq_type,
                     self.note,
                 );
-                // }
             }
             _ => {}
         }

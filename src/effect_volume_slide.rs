@@ -1,6 +1,6 @@
-use core::default::Default;
-use crate::helper::clamp;
 use crate::effect::*;
+use crate::helper::clamp;
+use core::default::Default;
 
 #[derive(Clone, Default)]
 pub struct Volume {
@@ -50,11 +50,11 @@ impl EffectXM2EffectPlugin for EffectVolumeSlide {
         if rawval & 0xF0 != 0 {
             /* Slide up */
             let f = (rawval >> 4) as f32 / 64.0;
-            Some( (Some(f), None))
+            Some((Some(f), None))
         } else {
             /* Slide down */
             let f = (rawval & 0x0F) as f32 / 64.0;
-            Some( (Some(-f), None))
+            Some((Some(-f), None))
         }
     }
 
@@ -63,7 +63,7 @@ impl EffectXM2EffectPlugin for EffectVolumeSlide {
         let arg = match updown {
             1 => (param & 0x0F) << 4,
             2 => param & 0x0F,
-            _ => param
+            _ => param,
         };
         if let Some((Some(vol_slide), None)) = Self::xm_convert(arg, 0) {
             self.tick0(vol_slide, 0.0);

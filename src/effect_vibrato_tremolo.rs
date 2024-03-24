@@ -110,7 +110,6 @@ impl EffectPlugin for EffectVibratoTremolo {
         } else {
             self.value
         }
-
     }
 }
 

@@ -58,16 +58,17 @@ impl EffectPlugin for EffectTonePortamento {
 }
 
 impl EffectXM2EffectPlugin for EffectTonePortamento {
-    // 0b?1 : linear frequency = if 1 true
-    // 0b1? : multiplier = if 1 *16 else *1
+    // 0b0000_0001 : linear frequency
+    // 0b1111_1110 : multiplier { 16 }
     fn xm_convert(speed: u8, multiplier: u8) -> Option<(Option<f32>, Option<f32>)> {
-        let speed = speed as f32 * 4.0;
-        let speed: f32 = match multiplier {
-            0b01 => speed,        // linear frequency
-            0b10 => speed * 16.0, // amiga frequency
-            0b11 => speed * 16.0, // amiga frequency
-            _ => speed,
+        let speed: f32 = if multiplier & 1 == 1 {
+            speed as f32 * 4.0
+        } else {
+            speed as f32
         };
+        let mult = multiplier & 0b1111_1110;
+        let mult = if mult == 0 { 1 } else { mult } as f32;
+        let speed: f32 = speed * mult;
         if speed != 0.0 {
             Some((Some(speed), None))
         } else {
