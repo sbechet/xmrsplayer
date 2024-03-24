@@ -201,7 +201,7 @@ impl Channel {
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
                 if self.porta_semitone_slides {
-                    // TODO: porta_semitone_slides: what can i do here?
+                    // TODO: Tone portamento effects slide by semitones
                 }
             }
             4 if current_tick != 0 => {
@@ -213,17 +213,15 @@ impl Channel {
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
                 if self.porta_semitone_slides {
-                    // TODO: porta_semitone_slides: what can i do here?
+                    // TODO: Tone portamento effects slide by semitones
                 }
                 // now volume slide
-                let rawval = self.volume_slide_param;
-                self.volume_slide(rawval);
+                self.volume_slide(self.volume_slide_param);
             }
             6 if current_tick != 0 => {
                 /* 6xy: Vibrato + Volume slide */
                 self.vibrato.tick();
-                let rawval = self.volume_slide_param;
-                self.volume_slide(rawval);
+                self.volume_slide(self.volume_slide_param);
             }
             7 if current_tick != 0 => {
                 /* 7xy: Tremolo */
@@ -303,7 +301,12 @@ impl Channel {
                 }
             }
             0x1D if current_tick != 0 => {
-                /* Txy: Tremor */
+                /* Txy: Tremor
+                    Rapidly switches the sample volume on and off on every tick of the row except the first.
+                    Volume is on for x + 1 ticks and off for y + 1 ticks.
+
+                    tremor_on: bool = [(T-1) % (X+1+Y+1) ] > X
+                */
                 self.tremor_on = (current_tick - 1)
                     % ((self.tremor_param as u16 >> 4) + (self.tremor_param as u16 & 0x0F) + 2)
                     > (self.tremor_param as u16 >> 4);
@@ -407,7 +410,6 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x5 => {
                 /* 5xy: Tone portamento + Volume slide */
-                // TODO: it seems effect_parameter is for tone_portamento? see ft2_replayer.c#L1361 ???
                 if self.current.effect_parameter > 0 {
                     self.volume_slide_param = self.current.effect_parameter;
                 }

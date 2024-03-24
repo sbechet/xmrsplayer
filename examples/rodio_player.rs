@@ -42,7 +42,6 @@ struct Cli {
     /// Play only a specific channel (from 1 to n)
     #[arg(short = 'c', long, default_value = "0")]
     ch: u8,
-
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -84,7 +83,14 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u8, debug: bool, ch: u8) {
+fn rodio_play(
+    module: Arc<Module>,
+    amplification: f32,
+    position: usize,
+    loops: u8,
+    debug: bool,
+    ch: u8,
+) {
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
@@ -99,7 +105,6 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
         if ch != 0 {
             player_lock.mute_all(true);
             player_lock.set_mute_channel((ch - 1).into(), false);
-
         }
         player_lock.set_max_loop_count(loops);
         player_lock.goto(position, 0);
