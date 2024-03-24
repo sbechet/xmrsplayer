@@ -112,24 +112,41 @@ fn rodio_play(module: Arc<Module>, amplification: f32, position: usize, loops: u
     sink.play();
 
     let stdout = Term::stdout();
-    println!("Enter key for info, escape key to exit...");
+    println!("Enter key for info, Space for pause, escape key to exit...");
+    let mut playing = true;
     loop {
         if let Ok(character) = stdout.read_key() {
             match character {
                 Key::Enter => {
-                    println!("Example");
+                    let ti = player_clone.lock().unwrap().get_current_table_index();
+                    let p = player_clone.lock().unwrap().get_current_pattern();
+                    println!("current table index:{:02x}, current pattern:{:02x}", ti, p);
                 }
                 Key::Escape => {
                     println!("Have a nice day!");
                     sink.stop();
                     return;
                 }
+                Key::Char(' ') => {
+                    if playing {
+                        println!("Pause, press space to continue");
+                        sink.pause();
+                        playing = false;
+                        {
+                            let player = player_clone.lock().unwrap();
+                            let ti = player.get_current_table_index();
+                            let p = player.get_current_pattern();
+                            let row = player.get_current_row();
+                            println!("Pattern [{:02X}]={:02X}, Row {:02X}", ti, p, row);
+                        }
+                    } else {
+                        println!("Playing");
+                        sink.play();
+                        playing = true;
+                    }
+                }
                 _ => {}
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs(1));
-        let ti = player_clone.lock().unwrap().get_current_table_index();
-        let p = player_clone.lock().unwrap().get_current_pattern();
-        println!("current table index:{:02x}, current pattern:{:02x}", ti, p);
     }
 }
