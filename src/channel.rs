@@ -7,6 +7,7 @@ use crate::effect_multi_retrig_note::EffectMultiRetrigNote;
 use crate::effect_portamento::EffectPortamento;
 use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
+use crate::effect_volume_slide::EffectVolumeSlide;
 
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
@@ -41,9 +42,6 @@ pub struct Channel {
     // Instrument
     instr: Option<StateInstrDefault>,
 
-    volume_slide_param: u8,
-    fine_volume_slide_param: u8,
-
     panning_slide_param: u8,
 
     arpeggio: EffectArpeggio,
@@ -52,8 +50,10 @@ pub struct Channel {
     portamento_fine: EffectPortamento,
     portamento_extrafine: EffectPortamento,
     tone_portamento: EffectTonePortamento,
-    vibrato: EffectVibratoTremolo,
     tremolo: EffectVibratoTremolo,
+    volume_slide: EffectVolumeSlide,
+    volume_slide_tick0: EffectVolumeSlide,
+    vibrato: EffectVibratoTremolo,
 
     porta_semitone_slides: bool,
 
@@ -124,24 +124,6 @@ impl Channel {
             let f = (rawval & 0x0F) as f32 / 16.0;
             self.panning -= f;
             clamp_down(&mut self.panning);
-        }
-    }
-
-    fn volume_slide(&mut self, rawval: u8) {
-        if (rawval & 0xF0 != 0) && (rawval & 0x0F != 0) {
-            /* Illegal state */
-            return;
-        }
-        if rawval & 0xF0 != 0 {
-            /* Slide up */
-            let f = (rawval >> 4) as f32 / 64.0;
-            self.volume += f;
-            clamp_up(&mut self.volume);
-        } else {
-            /* Slide down */
-            let f = (rawval & 0x0F) as f32 / 64.0;
-            self.volume -= f;
-            clamp_down(&mut self.volume);
         }
     }
 
@@ -216,12 +198,13 @@ impl Channel {
                     // TODO: Tone portamento effects slide by semitones
                 }
                 // now volume slide
-                self.volume_slide(self.volume_slide_param);
+                self.volume += self.volume_slide.tick();
             }
             6 if current_tick != 0 => {
                 /* 6xy: Vibrato + Volume slide */
                 self.vibrato.tick();
-                self.volume_slide(self.volume_slide_param);
+                // now volume slide
+                self.volume += self.volume_slide.tick();
             }
             7 if current_tick != 0 => {
                 /* 7xy: Tremolo */
@@ -229,8 +212,7 @@ impl Channel {
             }
             0xA if current_tick != 0 => {
                 /* Axy: Volume slide */
-                let rawval = self.volume_slide_param;
-                self.volume_slide(rawval);
+                self.volume += self.volume_slide.tick();
             }
             0xE => {
                 /* EXy: Extended command */
@@ -252,12 +234,14 @@ impl Channel {
                     }
                     0xC => {
                         /* ECy: Note cut */
+                        //TODO? If y is greater than or equal to the current module Speed, this command is ignored. 
                         if (self.current.effect_parameter as u16 & 0x0F) == current_tick {
                             self.cut_note();
                         }
                     }
                     0xD => {
                         /* EDy: Note delay */
+                        //TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played. 
                         if self.note_delay_param as u16 == current_tick {
                             self.tick0_load_note_and_instrument();
                             match &mut self.instr {
@@ -273,8 +257,6 @@ impl Channel {
             }
             0x14 => {
                 /* Kxx: Key off */
-                /* Most documentations will tell you the parameter has no
-                 * use. Don't be fooled. */
                 if current_tick == self.current.effect_parameter as u16 {
                     self.key_off();
                 }
@@ -319,11 +301,13 @@ impl Channel {
         match self.current.volume >> 4 {
             0x6 => {
                 /* - - Volume slide down */
-                self.volume_slide(self.current.volume & 0x0F);
+                self.volume_slide.xm_update_effect(self.current.volume, 2, 0.0);
+                self.volume += self.volume_slide.tick();
             }
             0x7 => {
                 /* + - Volume slide up */
-                self.volume_slide(self.current.volume << 4);
+                self.volume_slide.xm_update_effect(self.current.volume, 1, 0.0);
+                self.volume += self.volume_slide.tick();
             }
             0xB => {
                 /* V - Vibrato */
@@ -410,15 +394,11 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x5 => {
                 /* 5xy: Tone portamento + Volume slide */
-                if self.current.effect_parameter > 0 {
-                    self.volume_slide_param = self.current.effect_parameter;
-                }
+                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
             }
             0x6 => {
                 /* 6xy: Vibrato + Volume slide */
-                if self.current.effect_parameter > 0 {
-                    self.volume_slide_param = self.current.effect_parameter;
-                }
+                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
             }
             0x7 => self
                 .tremolo
@@ -448,9 +428,7 @@ impl Channel {
             }
             0xA => {
                 /* Axy: Volume slide */
-                if self.current.effect_parameter > 0 {
-                    self.volume_slide_param = self.current.effect_parameter;
-                }
+                self.volume_slide.xm_update_effect(self.current.effect_parameter,0, 0.0);
             }
             0xC => {
                 /* Cxx: Set volume */
@@ -523,24 +501,21 @@ impl Channel {
                     }
                     0xA => {
                         /* EAy: Fine volume slide up */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_volume_slide_param = self.current.effect_parameter & 0x0F;
-                        }
-                        self.volume_slide(self.fine_volume_slide_param << 4);
+                        self.volume_slide_tick0.xm_update_effect(self.current.effect_parameter,1, 0.0);
+                        self.volume += self.volume_slide_tick0.tick();
                     }
                     0xB => {
                         /* EBy: Fine volume slide down */
-                        if self.current.effect_parameter & 0x0F != 0 {
-                            self.fine_volume_slide_param = self.current.effect_parameter & 0x0F;
-                        }
-                        self.volume_slide(self.fine_volume_slide_param);
+                        self.volume_slide_tick0.xm_update_effect(self.current.effect_parameter,2, 0.0);
+                        self.volume += self.volume_slide_tick0.tick();
                     }
                     0xD => {
                         /* EDy: Note delay */
-                        /* XXX: figure this out better. EDx triggers
+                        // TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played. 
+                        /* XXX: figure this out better. EDy triggers
                          * the note even when there no note and no
                          * instrument. But ED0 acts like like a ghost
-                         * note, EDx (x ≠ 0) does not. */
+                         * note, EDy (y ≠ 0) does not. */
                         if let Note::None = self.current.note {
                             if self.current.instrument == 0 {
                                 let flags = TriggerKeep::VOLUME;
@@ -632,9 +607,15 @@ impl Channel {
             // + - Volume slide up (0..15)
             0x7 => {} // see tick() fn
             // D - Fine volume slide down (0..15)
-            0x8 => self.volume_slide(self.current.volume & 0x0F),
+            0x8 => {
+                self.volume_slide.xm_update_effect(self.current.volume, 2, 0.0);
+                self.volume += self.volume_slide.tick();
+            }
             // U - Fine volume slide up (0..15)
-            0x9 => self.volume_slide(self.current.volume << 4),
+            0x9 => {
+                self.volume_slide.xm_update_effect(self.current.volume, 1, 0.0);
+                self.volume += self.volume_slide.tick();
+            }
             // S - Vibrato speed (0..15)
             0xA => self.vibrato.xm_update_effect(self.current.volume, 1, 0.0),
             // V - Vibrato depth (0..15)
