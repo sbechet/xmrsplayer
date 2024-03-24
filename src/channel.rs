@@ -80,7 +80,7 @@ impl Channel {
             panning: 0.5,
             vibrato: EffectVibratoTremolo::vibrato(),
             tremolo: EffectVibratoTremolo::tremolo(),
-            multi_retrig_note: EffectMultiRetrigNote::new(true, 0.0, 0.0),
+            multi_retrig_note: EffectMultiRetrigNote::new(false, 0.0, 0.0),
             ..Default::default()
         }
     }
