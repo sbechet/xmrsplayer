@@ -105,10 +105,12 @@ impl EffectPlugin for EffectVibratoTremolo {
 
     fn value(&self) -> f32 {
         if self.is_tremolo {
+            // the depth is half for the tremolo
             self.value / 2.0
         } else {
             self.value
         }
+
     }
 }
 
@@ -118,8 +120,8 @@ impl EffectXM2EffectPlugin for EffectVibratoTremolo {
             let depth = (param & 0x0F) as f32 / 2.0;
             let depth = if depth != 0.0 { Some(depth) } else { None };
 
-            // from 0..63 after shift to 0..1.0
-            let speed = ((param & 0xF0) >> 2) as f32 / 64.0 / 4.0;
+            // from 0..15 to 0..1.0
+            let speed = ((param & 0xF0) >> 4) as f32 / 64.0;
             let speed = if speed != 0.0 { Some(speed) } else { None };
 
             Some((speed, depth))
