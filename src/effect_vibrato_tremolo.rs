@@ -115,10 +115,11 @@ impl EffectPlugin for EffectVibratoTremolo {
 impl EffectXM2EffectPlugin for EffectVibratoTremolo {
     fn xm_convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if param > 0 {
-            let depth = (param & 0x0F) as f32 / 16.0;
+            let depth = (param & 0x0F) as f32 / 2.0;
             let depth = if depth != 0.0 { Some(depth) } else { None };
 
-            let speed = ((param & 0xF0) >> 2) as f32 / 60.0;
+            // from 0..63 after shift to 0..1.0
+            let speed = ((param & 0xF0) >> 2) as f32 / 64.0 / 4.0;
             let speed = if speed != 0.0 { Some(speed) } else { None };
 
             Some((speed, depth))
@@ -138,7 +139,8 @@ impl EffectXM2EffectPlugin for EffectVibratoTremolo {
                 }
             }
         } else {
-            let vol_data = param as f32 * 4.0 / 60.0;
+            // from 0..15 to 0..63 then to 0..1.0
+            let vol_data = param as f32 * 4.0 / 63.0;
             if vol_data != 0.0 {
                 self.data.speed = vol_data;
             }
