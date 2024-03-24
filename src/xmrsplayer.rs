@@ -268,12 +268,22 @@ impl XmrsPlayer {
         let mut in_a_loop = false;
 
         let current_row = self.current_row as usize;
+        if self.debug {
+            print!("{:02X} ", current_row);
+        }
         for ch_index in 0..num_channels {
-            self.channel[ch_index].tick0(&self.module.pattern[pat_idx][current_row][ch_index]);
+            let ps = &self.module.pattern[pat_idx][current_row][ch_index];
+            self.channel[ch_index].tick0(ps);
+            if self.debug {
+                print!("{:?}",ps);
+            }
             self.tick0_global_effects(ch_index);
             if !in_a_loop && self.channel[ch_index].pattern_loop_count > 0 {
                 in_a_loop = true;
             }
+        }
+        if self.debug {
+            println!();
         }
 
         if !in_a_loop {
