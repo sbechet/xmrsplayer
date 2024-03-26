@@ -46,17 +46,17 @@ impl VibratoTremolo {
 #[derive(Default, Clone, Copy, Debug)]
 pub struct EffectVibratoTremolo {
     pub data: VibratoTremolo,
-    pub is_tremolo: bool,
+    pub multiplier: f32,
     pub in_progress: bool,
     pub pos: f32,
     pub value: f32,
 }
 
 impl EffectVibratoTremolo {
-    fn new(data: VibratoTremolo, is_tremolo: bool) -> Self {
+    fn new(data: VibratoTremolo, multiplier: f32) -> Self {
         Self {
             data,
-            is_tremolo,
+            multiplier,
             in_progress: false,
             pos: 0.0,
             value: 0.0,
@@ -64,11 +64,11 @@ impl EffectVibratoTremolo {
     }
 
     pub fn tremolo() -> Self {
-        Self::new(VibratoTremolo::default(), true)
+        Self::new(VibratoTremolo::default(), 4.0)
     }
 
     pub fn vibrato() -> Self {
-        Self::new(VibratoTremolo::default(), false)
+        Self::new(VibratoTremolo::default(), 8.0)
     }
 }
 
@@ -104,19 +104,14 @@ impl EffectPlugin for EffectVibratoTremolo {
     }
 
     fn value(&self) -> f32 {
-        if self.is_tremolo {
-            // the depth is half for the tremolo
-            self.value / 2.0
-        } else {
-            self.value
-        }
+        self.value * self.multiplier
     }
 }
 
 impl EffectXM2EffectPlugin for EffectVibratoTremolo {
     fn xm_convert(param: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if param > 0 {
-            let depth = (param & 0x0F) as f32 / 2.0;
+            let depth = (param & 0x0F) as f32 / 16.0;
             let depth = if depth != 0.0 { Some(depth) } else { None };
 
             // from 0..15 to 0..1.0
@@ -140,8 +135,7 @@ impl EffectXM2EffectPlugin for EffectVibratoTremolo {
                 }
             }
         } else {
-            // from 0..15 to 0..63 then to 0..1.0
-            let vol_data = param as f32 * 4.0 / 64.0;
+            let vol_data = param as f32 / 64.0;
             if vol_data != 0.0 {
                 self.data.speed = vol_data;
             }
