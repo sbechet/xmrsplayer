@@ -20,14 +20,12 @@ impl VibratoTremolo {
     fn waveform(&self, pos: f32) -> f32 {
         let value = self.depth
             * match self.waveform {
-                0 => (std::f32::consts::TAU * pos).sin(),
+                0 => -(std::f32::consts::TAU * pos).sin(),
                 1 => {
-                    if pos < 0.25 {
-                        4.0 * pos
-                    } else if pos < 0.75 {
-                        -4.0 * (pos - 0.25) + 1.0
+                    if pos < 0.5 {
+                        -2.0 * pos
                     } else {
-                        4.0 * (pos - 0.75) - 1.0
+                        -2.0 * (pos - 0.5) + 1.0
                     }
                 }
                 _ => {
