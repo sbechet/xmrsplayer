@@ -58,8 +58,13 @@ impl EffectXM2EffectPlugin for EffectVolumePanningSlide {
         }
     }
 
-    /// updown=1:up, updown=2:down, else auto-choose
-    /// diviser=64:volume, 16:panning
+    // volume usage, diviser=64
+    //  - updown=1:up
+    //  - updown=2:down
+    //
+    // panning usage, diviser=16
+    //  - updown=1:right
+    //  - updown=2:left
     fn xm_update_effect(&mut self, param: u8, updown: u8, diviser: f32) {
         let arg = match updown {
             1 => (param & 0x0F) << 4,

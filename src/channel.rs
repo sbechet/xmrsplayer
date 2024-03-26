@@ -42,10 +42,9 @@ pub struct Channel {
     // Instrument
     instr: Option<StateInstrDefault>,
 
-    panning_slide_param: u8,
-
     arpeggio: EffectArpeggio,
     multi_retrig_note: EffectMultiRetrigNote,
+    panning_slide: EffectVolumePanningSlide,
     portamento: EffectPortamento,
     portamento_fine: EffectPortamento,
     portamento_extrafine: EffectPortamento,
@@ -105,25 +104,6 @@ impl Channel {
                 i.key_off();
             }
             None => self.cut_note(),
-        }
-    }
-
-    // 0xRL
-    fn panning_slide(&mut self, rawval: u8) {
-        if (rawval & 0xF0 != 0) && (rawval & 0x0F != 0) {
-            /* Illegal state */
-            return;
-        }
-        if rawval & 0xF0 != 0 {
-            /* Slide right */
-            let f = (rawval >> 4) as f32 / 16.0;
-            self.panning += f;
-            clamp_up(&mut self.panning);
-        } else {
-            /* Slide left */
-            let f = (rawval & 0x0F) as f32 / 16.0;
-            self.panning -= f;
-            clamp_down(&mut self.panning);
         }
     }
 
@@ -261,7 +241,7 @@ impl Channel {
             }
             0x19 if current_tick != 0 => {
                 /* Pxy: Panning slide */
-                self.panning_slide(self.panning_slide_param);
+                self.panning += self.panning_slide.tick();
             }
             0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
@@ -315,11 +295,15 @@ impl Channel {
             }
             0xD => {
                 /* L - Panning slide left */
-                self.panning_slide(self.current.volume & 0x0F);
+                self.panning_slide
+                    .xm_update_effect(self.current.volume, 2, 16.0);
+                self.panning += self.panning_slide.tick();
             }
             0xE => {
                 /* R - Panning slide right */
-                self.panning_slide(self.current.volume << 4);
+                self.panning_slide
+                    .xm_update_effect(self.current.volume, 1, 16.0);
+                self.panning += self.panning_slide.tick();
             }
             0xF => {
                 /* M - Tone portamento */
@@ -561,9 +545,8 @@ impl Channel {
             }
             0x19 => {
                 /* Pxy: Panning slide */
-                if self.current.effect_parameter > 0 {
-                    self.panning_slide_param = self.current.effect_parameter;
-                }
+                self.panning_slide
+                    .xm_update_effect(self.current.effect_parameter, 0, 16.0);
             }
             0x1B => {
                 /* Rxy: Multi retrig note */
