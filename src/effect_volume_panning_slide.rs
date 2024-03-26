@@ -8,11 +8,11 @@ pub struct Volume {
 }
 
 #[derive(Clone, Default)]
-pub struct EffectVolumeSlide {
+pub struct EffectVolumePanningSlide {
     pub data: Volume,
 }
 
-impl EffectPlugin for EffectVolumeSlide {
+impl EffectPlugin for EffectVolumePanningSlide {
     fn tick0(&mut self, value: f32, _param2: f32) -> f32 {
         self.data.value = value;
         self.value()
@@ -41,7 +41,7 @@ impl EffectPlugin for EffectVolumeSlide {
     }
 }
 
-impl EffectXM2EffectPlugin for EffectVolumeSlide {
+impl EffectXM2EffectPlugin for EffectVolumePanningSlide {
     fn xm_convert(rawval: u8, _special: u8) -> Option<(Option<f32>, Option<f32>)> {
         if (rawval & 0xF0 != 0) && (rawval & 0x0F != 0) {
             /* Illegal state */
@@ -49,24 +49,25 @@ impl EffectXM2EffectPlugin for EffectVolumeSlide {
         }
         if rawval & 0xF0 != 0 {
             /* Slide up */
-            let f = (rawval >> 4) as f32 / 64.0;
+            let f = (rawval >> 4) as f32;
             Some((Some(f), None))
         } else {
             /* Slide down */
-            let f = (rawval & 0x0F) as f32 / 64.0;
+            let f = (rawval & 0x0F) as f32;
             Some((Some(-f), None))
         }
     }
 
     /// updown=1:up, updown=2:down, else auto-choose
-    fn xm_update_effect(&mut self, param: u8, updown: u8, _special2: f32) {
+    /// diviser=64:volume, 16:panning
+    fn xm_update_effect(&mut self, param: u8, updown: u8, diviser: f32) {
         let arg = match updown {
             1 => (param & 0x0F) << 4,
             2 => param & 0x0F,
             _ => param,
         };
         if let Some((Some(vol_slide), None)) = Self::xm_convert(arg, 0) {
-            self.tick0(vol_slide, 0.0);
+            self.tick0(vol_slide / diviser, 0.0);
         }
         self.retrigger();
     }

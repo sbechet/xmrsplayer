@@ -7,7 +7,7 @@ use crate::effect_multi_retrig_note::EffectMultiRetrigNote;
 use crate::effect_portamento::EffectPortamento;
 use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
-use crate::effect_volume_slide::EffectVolumeSlide;
+use crate::effect_volume_panning_slide::EffectVolumePanningSlide;
 
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
@@ -51,8 +51,8 @@ pub struct Channel {
     portamento_extrafine: EffectPortamento,
     tone_portamento: EffectTonePortamento,
     tremolo: EffectVibratoTremolo,
-    volume_slide: EffectVolumeSlide,
-    volume_slide_tick0: EffectVolumeSlide,
+    volume_slide: EffectVolumePanningSlide,
+    volume_slide_tick0: EffectVolumePanningSlide,
     vibrato: EffectVibratoTremolo,
 
     porta_semitone_slides: bool,
@@ -300,13 +300,13 @@ impl Channel {
             0x6 => {
                 /* - - Volume slide down */
                 self.volume_slide
-                    .xm_update_effect(self.current.volume, 2, 0.0);
+                    .xm_update_effect(self.current.volume, 2, 64.0);
                 self.volume += self.volume_slide.tick();
             }
             0x7 => {
                 /* + - Volume slide up */
                 self.volume_slide
-                    .xm_update_effect(self.current.volume, 1, 0.0);
+                    .xm_update_effect(self.current.volume, 1, 64.0);
                 self.volume += self.volume_slide.tick();
             }
             0xB => {
@@ -397,12 +397,12 @@ impl Channel {
             0x5 => {
                 /* 5xy: Tone portamento + Volume slide */
                 self.volume_slide
-                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
+                    .xm_update_effect(self.current.effect_parameter, 0, 64.0);
             }
             0x6 => {
                 /* 6xy: Vibrato + Volume slide */
                 self.volume_slide
-                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
+                    .xm_update_effect(self.current.effect_parameter, 0, 64.0);
             }
             0x7 => self
                 .tremolo
@@ -433,7 +433,7 @@ impl Channel {
             0xA => {
                 /* Axy: Volume slide */
                 self.volume_slide
-                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
+                    .xm_update_effect(self.current.effect_parameter, 0, 64.0);
             }
             0xC => {
                 /* Cxx: Set volume */
@@ -509,7 +509,7 @@ impl Channel {
                         self.volume_slide_tick0.xm_update_effect(
                             self.current.effect_parameter,
                             1,
-                            0.0,
+                            64.0,
                         );
                         self.volume += self.volume_slide_tick0.tick();
                     }
@@ -518,7 +518,7 @@ impl Channel {
                         self.volume_slide_tick0.xm_update_effect(
                             self.current.effect_parameter,
                             2,
-                            0.0,
+                            64.0,
                         );
                         self.volume += self.volume_slide_tick0.tick();
                     }
@@ -622,13 +622,13 @@ impl Channel {
             // D - Fine volume slide down (0..15)
             0x8 => {
                 self.volume_slide
-                    .xm_update_effect(self.current.volume, 2, 0.0);
+                    .xm_update_effect(self.current.volume, 2, 64.0);
                 self.volume += self.volume_slide.tick();
             }
             // U - Fine volume slide up (0..15)
             0x9 => {
                 self.volume_slide
-                    .xm_update_effect(self.current.volume, 1, 0.0);
+                    .xm_update_effect(self.current.volume, 1, 64.0);
                 self.volume += self.volume_slide.tick();
             }
             // S - Vibrato speed (0..15)
