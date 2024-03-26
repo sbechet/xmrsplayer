@@ -556,8 +556,6 @@ impl Channel {
             0x1D => {
                 /* Txy: Tremor */
                 if self.current.effect_parameter > 0 {
-                    /* Tremor x and y params do not appear to be separately
-                     * kept in memory, unlike Rxy */
                     self.tremor_param = self.current.effect_parameter;
                 }
             }
