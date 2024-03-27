@@ -72,12 +72,13 @@ pub struct Channel {
 
 impl Channel {
     pub fn new(module: Arc<Module>, rate: f32) -> Self {
+        let linear = if let FrequencyType::LinearFrequencies = module.frequency_type { true } else { false };
         Self {
             module,
             rate,
             volume: 1.0,
             panning: 0.5,
-            vibrato: EffectVibratoTremolo::vibrato(),
+            vibrato: EffectVibratoTremolo::vibrato(linear),
             tremolo: EffectVibratoTremolo::tremolo(),
             multi_retrig_note: EffectMultiRetrigNote::new(false, 0.0, 0.0),
             ..Default::default()

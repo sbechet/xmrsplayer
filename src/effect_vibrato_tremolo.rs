@@ -22,11 +22,11 @@ impl VibratoTremolo {
             * match self.waveform {
                 0 => -(std::f32::consts::TAU * pos).sin(),
                 1 => {
-                    // triangle
+                    // triangle, but ramp down reality
                     if pos < 0.5 {
                         -2.0 * pos
                     } else {
-                        2.0 * (pos - 0.5) - 1.0
+                        -2.0 * (pos - 0.5) + 1.0
                     }
                 }
                 _ => {
@@ -64,11 +64,14 @@ impl EffectVibratoTremolo {
     }
 
     pub fn tremolo() -> Self {
-        Self::new(VibratoTremolo::default(), 4.0)
+        Self::new(VibratoTremolo::default(), 1.0)
     }
 
-    pub fn vibrato() -> Self {
-        Self::new(VibratoTremolo::default(), 8.0)
+    pub fn vibrato(linear: bool) -> Self {
+        match linear {
+            true => Self::new(VibratoTremolo::default(), 2.0 * 4.0),
+            false => Self::new(VibratoTremolo::default(), 2.0),
+        }
     }
 }
 
