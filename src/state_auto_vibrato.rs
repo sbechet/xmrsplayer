@@ -1,10 +1,11 @@
 /// An Instrument Vibrato State
 use std::sync::Arc;
-use xmrs::instr_vibrato::InstrVibrato;
+use xmrs::{instr_vibrato::InstrVibrato, module::FrequencyType};
 
 #[derive(Clone, Default)]
 pub struct StateAutoVibrato {
     vibrato: Arc<InstrVibrato>,
+    freq_type: FrequencyType,
     sweep: f32,
     amp: f32,
     pos: f32,
@@ -12,9 +13,10 @@ pub struct StateAutoVibrato {
 }
 
 impl StateAutoVibrato {
-    pub fn new(vibrato: Arc<InstrVibrato>) -> Self {
+    pub fn new(vibrato: Arc<InstrVibrato>, freq_type: FrequencyType) -> Self {
         let mut sv = Self {
             vibrato: Arc::clone(&vibrato),
+            freq_type,
             ..Default::default()
         };
 
@@ -56,6 +58,8 @@ impl StateAutoVibrato {
             };
             self.pos += self.vibrato.speed;
             self.period_offset = self.amp * self.vibrato.waveform.value(self.pos);
+            self.period_offset /= if let FrequencyType::LinearFrequencies = self.freq_type { 1.0 } else { 4.0 }
+
         }
     }
 }

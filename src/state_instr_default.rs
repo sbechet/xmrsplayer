@@ -56,7 +56,7 @@ impl StateInstrDefault {
             rate,
             freq_type,
             state_sample: None,
-            state_vibrato: StateAutoVibrato::new(v),
+            state_vibrato: StateAutoVibrato::new(v, freq_type),
             envelope_volume: StateEnvelope::new(ve, 1.0),
             envelope_panning: StateEnvelope::new(pe, 0.5),
             sustained: true,
