@@ -22,13 +22,15 @@ impl VibratoTremolo {
             * match self.waveform {
                 0 => -(std::f32::consts::TAU * pos).sin(),
                 1 => {
+                    // triangle
                     if pos < 0.5 {
                         -2.0 * pos
                     } else {
-                        -2.0 * (pos - 0.5) + 1.0
+                        2.0 * (pos - 0.5) - 1.0
                     }
                 }
                 _ => {
+                    // square
                     if pos < 0.5 {
                         -1.0
                     } else {
