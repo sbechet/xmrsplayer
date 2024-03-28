@@ -72,7 +72,7 @@ impl EffectXM2EffectPlugin for EffectPortamento {
 
     fn xm_update_effect(&mut self, param: u8, portype: u8, updown: f32) {
         if let Some((Some(p), None)) = Self::xm_convert(param, portype) {
-            let p = if updown == 1.0 { -p } else { p };
+            let p = if updown == 1.0 { p } else { -p };
             self.tick0(p, 0.0);
         }
         self.retrigger();
