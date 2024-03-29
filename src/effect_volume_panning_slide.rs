@@ -3,18 +3,13 @@ use crate::helper::clamp;
 use core::default::Default;
 
 #[derive(Clone, Default)]
-pub struct Volume {
-    pub value: f32,
-}
-
-#[derive(Clone, Default)]
 pub struct EffectVolumePanningSlide {
-    pub data: Volume,
+    pub value: f32,
 }
 
 impl EffectPlugin for EffectVolumePanningSlide {
     fn tick0(&mut self, value: f32, _param2: f32) -> f32 {
-        self.data.value = value;
+        self.value = value;
         self.value()
     }
 
@@ -23,21 +18,21 @@ impl EffectPlugin for EffectVolumePanningSlide {
     }
 
     fn in_progress(&self) -> bool {
-        self.data.value != 0.0
+        self.value != 0.0
     }
 
     fn retrigger(&mut self) -> f32 {
         self.value()
     }
 
-    fn clamp(&self, volume: f32) -> f32 {
-        let mut v = volume;
+    fn clamp(&self, value: f32) -> f32 {
+        let mut v = value;
         clamp(&mut v);
         v
     }
 
     fn value(&self) -> f32 {
-        self.data.value
+        self.value
     }
 }
 

@@ -243,6 +243,7 @@ impl Channel {
             0x19 if current_tick != 0 => {
                 /* Pxy: Panning slide */
                 self.panning += self.panning_slide.tick();
+                self.panning_slide.clamp(self.panning);
             }
             0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
@@ -293,18 +294,6 @@ impl Channel {
             0xB => {
                 /* V - Vibrato */
                 self.vibrato.tick();
-            }
-            0xD => {
-                /* L - Panning slide left */
-                self.panning_slide
-                    .xm_update_effect(self.current.volume, 2, 16.0);
-                self.panning += self.panning_slide.tick();
-            }
-            0xE => {
-                /* R - Panning slide right */
-                self.panning_slide
-                    .xm_update_effect(self.current.volume, 1, 16.0);
-                self.panning += self.panning_slide.tick();
             }
             0xF => {
                 /* M - Tone portamento */
@@ -394,7 +383,7 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x8 => {
                 /* 8xx: Set panning */
-                self.panning = self.current.effect_parameter as f32 / 255.0;
+                self.panning = self.current.effect_parameter as f32 / 256.0;
             }
             0x9 => {
                 /* 9xx: Sample offset */
@@ -548,6 +537,7 @@ impl Channel {
                 /* Pxy: Panning slide */
                 self.panning_slide
                     .xm_update_effect(self.current.effect_parameter, 0, 16.0);
+                self.panning_slide.clamp(self.panning);
             }
             0x1B => {
                 /* Rxy: Multi retrig note */
@@ -618,11 +608,21 @@ impl Channel {
             // V - Vibrato depth (0..15)
             0xB => {} // see tick() fn
             // P - Set panning
-            0xC => self.panning = (self.current.volume << 4) as f32 / 255.0,
-            // L - Pan slide left (0..15)
-            0xD => {} // see tick() fn
-            // R - Pan slide right (0..15)
-            0xE => {} // see tick() fn
+            0xC => self.panning = (self.current.volume & 0x0F) as f32 / 16.0,
+            0xD => {
+                /* L - Panning slide left */
+                self.panning_slide
+                    .xm_update_effect(self.current.volume, 2, 16.0);
+                self.panning += self.panning_slide.tick();
+                self.panning_slide.clamp(self.panning);
+            }
+            0xE => {
+                /* R - Panning slide right */
+                self.panning_slide
+                    .xm_update_effect(self.current.volume, 1, 16.0);
+                self.panning += self.panning_slide.tick();
+                self.panning_slide.clamp(self.panning);
+            }
             // M - Tone portamento (0..15)
             0xF => {
                 let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
