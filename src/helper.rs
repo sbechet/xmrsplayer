@@ -124,6 +124,7 @@ pub fn amiga_frequency(period: f32) -> f32 {
     }
 }
 
+// TODO: Clamp args like period?
 pub fn frequency(freq_type: FrequencyType, period: f32, arp_note: f32, period_offset: f32) -> f32 {
     match freq_type {
         FrequencyType::LinearFrequencies => {

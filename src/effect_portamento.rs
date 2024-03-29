@@ -36,6 +36,7 @@ impl EffectPlugin for EffectPortamento {
 
     fn clamp(&self, period: f32) -> f32 {
         let final_period = period + self.value();
+        // TODO: maybe clamp can be done elsewhere
         match final_period {
             p if p < 1.0 => 1.0,
             p if p >= 32000.0 => 32000.0 - 1.0,
@@ -62,7 +63,7 @@ impl EffectXM2EffectPlugin for EffectPortamento {
             }
             2 => {
                 // extra fin portamento
-                (1.0 / 4.0) * (param & 0x0F) as f32
+                4.0 * (param & 0x0F) as f32
             }
             _ => param as f32,
         };
@@ -72,7 +73,7 @@ impl EffectXM2EffectPlugin for EffectPortamento {
 
     fn xm_update_effect(&mut self, param: u8, portype: u8, updown: f32) {
         if let Some((Some(p), None)) = Self::xm_convert(param, portype) {
-            let p = if updown == 1.0 { p } else { -p };
+            let p = if updown == 1.0 { -p } else { p };
             self.tick0(p, 0.0);
         }
         self.retrigger();

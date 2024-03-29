@@ -359,7 +359,7 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x1 => self
                 .portamento
-                .xm_update_effect(self.current.effect_parameter, 0, 1.1),
+                .xm_update_effect(self.current.effect_parameter, 0, 1.0),
             0x2 => self
                 .portamento
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
