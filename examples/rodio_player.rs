@@ -94,7 +94,10 @@ fn rodio_play(
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
-    let player = Arc::new(Mutex::new(XmrsPlayer::new(Arc::clone(&module), SAMPLE_RATE as f32)));
+    let player = Arc::new(Mutex::new(XmrsPlayer::new(
+        Arc::clone(&module),
+        SAMPLE_RATE as f32,
+    )));
     {
         let mut player_lock = player.lock().unwrap();
         player_lock.amplification = amplification;
@@ -117,7 +120,9 @@ fn rodio_play(
     sink.play();
 
     let stdout = Term::stdout();
-    println!("Enter key for info, Space for pause, left or right arrow to move, escape key to exit...");
+    println!(
+        "Enter key for info, Space for pause, left or right arrow to move, escape key to exit..."
+    );
     let mut playing = true;
     loop {
         if let Ok(character) = stdout.read_key() {
@@ -133,22 +138,18 @@ fn rodio_play(
                     return;
                 }
                 Key::ArrowLeft => {
-                    {
-                        let mut player = player_clone.lock().unwrap();
-                        let i = player.get_current_table_index();
-                        if i != 0 {
-                            player.goto(i - 1, 0);
-                        }
+                    let mut player = player_clone.lock().unwrap();
+                    let i = player.get_current_table_index();
+                    if i != 0 {
+                        player.goto(i - 1, 0);
                     }
                 }
                 Key::ArrowRight => {
-                    {
-                        let mut player = player_clone.lock().unwrap();
-                        let len = module.pattern_order.len();
-                        let i = player.get_current_table_index();
-                        if i + 1 < len {
-                            player.goto(i + 1, 0);
-                        }
+                    let mut player = player_clone.lock().unwrap();
+                    let len = module.pattern_order.len();
+                    let i = player.get_current_table_index();
+                    if i + 1 < len {
+                        player.goto(i + 1, 0);
                     }
                 }
                 Key::Char(' ') => {

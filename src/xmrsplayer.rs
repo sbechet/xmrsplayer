@@ -1,4 +1,5 @@
-use crate::channel::{Channel, TriggerKeep};
+use crate::channel::Channel;
+use crate::triggerkeep::*;
 use crate::helper::*;
 use std::sync::Arc;
 use xmrs::prelude::*;
@@ -119,7 +120,7 @@ impl XmrsPlayer {
                 // Cleanup channels
                 let num_channels = self.module.get_num_channels();
                 for i in 0..num_channels {
-                    self.channel[i].trigger_note(TriggerKeep::PERIOD); // clean what we can
+                    self.channel[i].trigger_note(TRIGGER_KEEP_PERIOD); // clean what we can
                 }
 
                 // next() must call tick() then row()

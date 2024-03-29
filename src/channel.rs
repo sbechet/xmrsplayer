@@ -1,4 +1,3 @@
-use bitflags::bitflags;
 use std::sync::Arc;
 
 use crate::effect::*;
@@ -8,21 +7,11 @@ use crate::effect_portamento::EffectPortamento;
 use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 use crate::effect_volume_panning_slide::EffectVolumePanningSlide;
+use crate::triggerkeep::*;
 
 use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
 use xmrs::prelude::*;
-
-bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub struct TriggerKeep: u8 {
-        const NONE = 0;
-        const VOLUME = (1 << 0);
-        const PERIOD = (1 << 1);
-        const SAMPLE_POSITION = (1 << 2);
-        const ENVELOPE = (1 << 3);
-    }
-}
 
 #[derive(Clone, Default)]
 pub struct Channel {
@@ -72,7 +61,11 @@ pub struct Channel {
 
 impl Channel {
     pub fn new(module: Arc<Module>, rate: f32) -> Self {
-        let linear = if let FrequencyType::LinearFrequencies = module.frequency_type { true } else { false };
+        let linear = if let FrequencyType::LinearFrequencies = module.frequency_type {
+            true
+        } else {
+            false
+        };
         Self {
             module,
             rate,
@@ -113,22 +106,22 @@ impl Channel {
 
         match &mut self.instr {
             Some(instr) => {
-                if !flags.contains(TriggerKeep::SAMPLE_POSITION) {
+                if !contains(flags, TRIGGER_KEEP_SAMPLE_POSITION) {
                     instr.sample_reset();
                 }
 
-                if !flags.contains(TriggerKeep::ENVELOPE) {
+                if !contains(flags, TRIGGER_KEEP_ENVELOPE) {
                     instr.envelopes_reset();
                 }
 
                 instr.vibrato_reset();
 
-                if !flags.contains(TriggerKeep::VOLUME) {
+                if !contains(flags, TRIGGER_KEEP_VOLUME) {
                     self.volume = instr.volume;
                 }
                 self.panning = instr.panning;
 
-                if !flags.contains(TriggerKeep::PERIOD) {
+                if !contains(flags, TRIGGER_KEEP_PERIOD) {
                     self.period = period(self.module.frequency_type, self.note);
                     instr.update_frequency(
                         self.period,
@@ -203,7 +196,7 @@ impl Channel {
                         if self.current.effect_parameter & 0x0F != 0 {
                             let r = current_tick % (self.current.effect_parameter as u16 & 0x0F);
                             if r != 0 {
-                                self.trigger_note(TriggerKeep::VOLUME);
+                                self.trigger_note(TRIGGER_KEEP_VOLUME);
                                 match &mut self.instr {
                                     Some(instr) => {
                                         instr.envelopes();
@@ -248,7 +241,7 @@ impl Channel {
             0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
                 if self.multi_retrig_note.tick() == 0.0 {
-                    self.trigger_note(TriggerKeep::VOLUME | TriggerKeep::ENVELOPE);
+                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE);
 
                     /* Rxy doesn't affect volume if there's a command in the volume
                     column, or if the instrument has a volume envelope. */
@@ -505,14 +498,14 @@ impl Channel {
                          * note, EDy (y ≠ 0) does not. */
                         if let Note::None = self.current.note {
                             if self.current.instrument == 0 {
-                                let flags = TriggerKeep::VOLUME;
+                                let flags = TRIGGER_KEEP_VOLUME;
 
                                 if self.current.effect_parameter & 0x0F != 0 {
                                     self.note = self.orig_note;
                                     self.trigger_note(flags);
                                 } else {
                                     self.trigger_note(
-                                        flags | TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION,
+                                        flags | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION,
                                     );
                                 }
                             }
@@ -647,11 +640,11 @@ impl Channel {
         // First, load instr
         if self.current.instrument > 0 {
             if self.current.has_tone_portamento() {
-                self.trigger_note(TriggerKeep::PERIOD | TriggerKeep::SAMPLE_POSITION);
+                self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 /* Sample position is kept, but envelopes are reset */
-                self.trigger_note(TriggerKeep::SAMPLE_POSITION);
+                self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION);
             } else if self.current.instrument as usize > self.module.instrument.len() {
                 /* Invalid instrument, Cut current note */
                 self.cut_note();
@@ -692,10 +685,10 @@ impl Channel {
                         }
 
                         if self.current.instrument > 0 {
-                            self.trigger_note(TriggerKeep::NONE);
+                            self.trigger_note(TRIGGER_KEEP_NONE);
                         } else {
                             /* Ghost note: keep old volume */
-                            self.trigger_note(TriggerKeep::VOLUME);
+                            self.trigger_note(TRIGGER_KEEP_VOLUME);
                         }
                     } else {
                         self.cut_note();

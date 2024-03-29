@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 pub mod effect;
+pub mod triggerkeep;
 
 pub mod effect_arpeggio;
 pub mod effect_multi_retrig_note;
