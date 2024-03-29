@@ -243,7 +243,7 @@ impl Channel {
             0x19 if current_tick != 0 => {
                 /* Pxy: Panning slide */
                 self.panning += self.panning_slide.tick();
-                self.panning_slide.clamp(self.panning);
+                self.panning = self.panning_slide.clamp(self.panning);
             }
             0x1B if current_tick != 0 => {
                 /* Rxy: Multi retrig note */
@@ -537,7 +537,7 @@ impl Channel {
                 /* Pxy: Panning slide */
                 self.panning_slide
                     .xm_update_effect(self.current.effect_parameter, 0, 16.0);
-                self.panning_slide.clamp(self.panning);
+                self.panning = self.panning_slide.clamp(self.panning);
             }
             0x1B => {
                 /* Rxy: Multi retrig note */
@@ -614,14 +614,14 @@ impl Channel {
                 self.panning_slide
                     .xm_update_effect(self.current.volume, 2, 16.0);
                 self.panning += self.panning_slide.tick();
-                self.panning_slide.clamp(self.panning);
+                self.panning = self.panning_slide.clamp(self.panning);
             }
             0xE => {
                 /* R - Panning slide right */
                 self.panning_slide
                     .xm_update_effect(self.current.volume, 1, 16.0);
                 self.panning += self.panning_slide.tick();
-                self.panning_slide.clamp(self.panning);
+                self.panning = self.panning_slide.clamp(self.panning);
             }
             // M - Tone portamento (0..15)
             0xF => {
