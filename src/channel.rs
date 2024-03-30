@@ -34,9 +34,15 @@ pub struct Channel {
     arpeggio: EffectArpeggio,
     multi_retrig_note: EffectMultiRetrigNote,
     panning_slide: EffectVolumePanningSlide,
-    portamento: EffectPortamento,
-    portamento_fine: EffectPortamento,
-    portamento_extrafine: EffectPortamento,
+
+    // one memory for each shift effect
+    portamento_up: EffectPortamento,
+    portamento_down: EffectPortamento,
+    portamento_fine_up: EffectPortamento,
+    portamento_fine_down: EffectPortamento,
+    portamento_extrafine_up: EffectPortamento,
+    portamento_extrafine_down: EffectPortamento,
+
     tone_portamento: EffectTonePortamento,
     tremolo: EffectVibratoTremolo,
     volume_slide: EffectVolumePanningSlide,
@@ -142,15 +148,15 @@ impl Channel {
                     self.arpeggio.tick();
                 }
             }
-            1 => {
+            1 if current_tick != 0 => {
                 /* 1xx: Portamento up */
-                self.portamento.tick();
-                self.period = self.portamento.clamp(self.period);
+                self.portamento_up.tick();
+                self.period = self.portamento_up.clamp(self.period);
             }
-            2 => {
+            2 if current_tick != 0 => {
                 /* 2xx: Portamento down */
-                self.portamento.tick();
-                self.period = self.portamento.clamp(self.period);
+                self.portamento_down.tick();
+                self.period = self.portamento_down.clamp(self.period);
             }
             3 if current_tick != 0 => {
                 /* 3xx: Tone portamento */
@@ -339,12 +345,16 @@ impl Channel {
             0x0 => self
                 .arpeggio
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
-            0x1 => self
-                .portamento
-                .xm_update_effect(self.current.effect_parameter, 0, 1.0),
-            0x2 => self
-                .portamento
-                .xm_update_effect(self.current.effect_parameter, 0, 0.0),
+            0x1 => {
+                self
+                .portamento_up
+                .xm_update_effect(self.current.effect_parameter, 0, 1.0);
+            }
+            0x2 => {
+                self
+                .portamento_down
+                .xm_update_effect(self.current.effect_parameter, 0, 0.0);
+            }
             0x3 => {
                 let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
                 {
@@ -415,23 +425,21 @@ impl Channel {
                 match self.current.effect_parameter >> 4 {
                     0x1 => {
                         /* E1y: Fine Portamento up */
-                        self.portamento_fine.xm_update_effect(
+                        self.portamento_fine_up.xm_update_effect(
                             self.current.effect_parameter,
                             1,
                             1.0,
                         );
-                        self.portamento_fine.tick();
-                        self.period = self.portamento_fine.clamp(self.period);
+                        self.period = self.portamento_fine_up.clamp(self.period);
                     }
                     0x2 => {
                         /* E2y: Fine portamento down */
-                        self.portamento_fine.xm_update_effect(
+                        self.portamento_fine_down.xm_update_effect(
                             self.current.effect_parameter,
                             1,
                             0.0,
                         );
-                        self.portamento_fine.tick();
-                        self.period = self.portamento_fine.clamp(self.period);
+                        self.period = self.portamento_fine_down.clamp(self.period);
                     }
                     0x3 => {
                         /* E3y: Set glissando control */
@@ -547,23 +555,21 @@ impl Channel {
                 match self.current.effect_parameter >> 4 {
                     1 => {
                         /* X1y: Extra fine portamento up */
-                        self.portamento_extrafine.xm_update_effect(
+                        self.portamento_extrafine_up.xm_update_effect(
                             self.current.effect_parameter,
                             2,
                             1.0,
                         );
-                        self.portamento_extrafine.tick();
-                        self.period = self.portamento_extrafine.clamp(self.period);
+                        self.period = self.portamento_extrafine_up.clamp(self.period);
                     }
                     2 => {
                         /* X2y: Extra fine portamento down */
-                        self.portamento_extrafine.xm_update_effect(
+                        self.portamento_extrafine_down.xm_update_effect(
                             self.current.effect_parameter,
                             2,
                             0.0,
                         );
-                        self.portamento_extrafine.tick();
-                        self.period = self.portamento_extrafine.clamp(self.period);
+                        self.period = self.portamento_extrafine_down.clamp(self.period);
                     }
                     _ => {}
                 }

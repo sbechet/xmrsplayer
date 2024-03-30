@@ -3,35 +3,26 @@ use core::default::Default;
 use crate::effect::*;
 
 #[derive(Clone, Default)]
-pub struct Portamento {
-    pub speed: f32,
-}
-
-#[derive(Clone, Default)]
 pub struct EffectPortamento {
-    pub data: Portamento,
-    value: f32,
+    speed: f32,
 }
 
 impl EffectPlugin for EffectPortamento {
     fn tick0(&mut self, speed: f32, _param2: f32) -> f32 {
-        self.data.speed = speed;
-        self.value = 0.0;
-        self.value()
+        self.speed = speed;
+        self.speed
     }
 
     fn tick(&mut self) -> f32 {
-        self.value += self.data.speed;
-        self.value()
+        self.speed
     }
 
     fn in_progress(&self) -> bool {
-        self.data.speed != 0.0
+        self.speed != 0.0
     }
 
     fn retrigger(&mut self) -> f32 {
-        self.value = 0.0;
-        self.value()
+        self.speed
     }
 
     fn clamp(&self, period: f32) -> f32 {
@@ -45,27 +36,43 @@ impl EffectPlugin for EffectPortamento {
     }
 
     fn value(&self) -> f32 {
-        self.value
+        self.speed
     }
 }
 
 impl EffectXM2EffectPlugin for EffectPortamento {
     // { normal=0, fine=1, extrafine=2 }
     fn xm_convert(param: u8, portype: u8) -> Option<(Option<f32>, Option<f32>)> {
-        if param == 0 {
-            return None;
+        // assert for all case
+        match portype {
+            0 => {
+                if param == 0 {
+                    return None
+                }
+            }
+            1 | 2 => {
+                if param & 0x0F == 0 {
+                    return None
+                }
+            }
+            _ => {
+                return None
+            }
         }
 
         let p = match portype {
-            1 => {
-                // fine portamento
+            2 => {
+                // extra fin portamento (X1x or X2x)
                 (param & 0x0F) as f32
             }
-            2 => {
-                // extra fin portamento
-                4.0 * (param & 0x0F) as f32
+            1 => {
+                // fine portamento (E1x or E2x)
+                (param & 0x0F) as f32 * 4.0
             }
-            _ => param as f32,
+            _ => {
+                // portamento (1xx or 2xx)
+                param as f32 * 4.0
+            }
         };
 
         Some((Some(p), None))

@@ -20,7 +20,7 @@
                     "kind": "example"
                 }
             },
-            "args": ["-f DEADLOCK.XM"],
+            "args": ["-f","test.xm","-p","0","-c","1"],
             "cwd": "${workspaceFolder}"
         },
         {
