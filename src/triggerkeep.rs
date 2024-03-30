@@ -6,6 +6,7 @@ pub const TRIGGER_KEEP_PERIOD: TriggerKeep = 1 << 1;
 pub const TRIGGER_KEEP_SAMPLE_POSITION: TriggerKeep = 1 << 2;
 pub const TRIGGER_KEEP_ENVELOPE: TriggerKeep = 1 << 3;
 
+#[inline(always)]
 pub fn contains(test: TriggerKeep, flag: TriggerKeep) -> bool {
     (test & flag) == flag
 }

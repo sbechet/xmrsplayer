@@ -491,8 +491,7 @@ impl Channel {
                     }
                     0xD => {
                         /* EDy: Note delay */
-                        // TODO? If y is greater than or equal to the current module Speed, the current pattern cell's contents are never played.
-                        /* XXX: figure this out better. EDy triggers
+                        /* TODO: figure this out better. EDy triggers
                          * the note even when there no note and no
                          * instrument. But ED0 acts like like a ghost
                          * note, EDy (y ≠ 0) does not. */

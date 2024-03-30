@@ -46,10 +46,12 @@ impl EffectXM2EffectPlugin for EffectVolumePanningSlide {
             /* Slide up */
             let f = (rawval >> 4) as f32;
             Some((Some(f), None))
-        } else {
+        } else if rawval & 0x0F != 0 {
             /* Slide down */
             let f = (rawval & 0x0F) as f32;
             Some((Some(-f), None))
+        } else {
+            None
         }
     }
 

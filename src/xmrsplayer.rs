@@ -10,14 +10,14 @@ pub struct XmrsPlayer {
 
     tempo: u16,
     bpm: u16,
-    global_volume: f32,
+    pub global_volume: f32,
     global_volume_slide_param: u8,
     /// Global amplification (default 1/4)
     pub amplification: f32,
     current_table_index: u16,
     current_row: u8,
     current_tick: u16,
-    remaining_samples_in_tick: f32,
+    pub remaining_samples_in_tick: f32,
     /// +1 for a (left,right) sample
     pub generated_samples: u64,
 
@@ -29,11 +29,11 @@ pub struct XmrsPlayer {
     /// Extra ticks to be played before going to the next row - Used for EEy effect
     extra_ticks: u16,
 
-    channel: Vec<Channel>,
+    pub channel: Vec<Channel>,
 
     row_loop_count: Vec<Vec<u8>>,
-    loop_count: u8,
-    max_loop_count: u8,
+    pub loop_count: u8,
+    pub max_loop_count: u8,
 
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
@@ -313,7 +313,7 @@ impl XmrsPlayer {
         }
     }
 
-    fn tick(&mut self) {
+    pub fn tick(&mut self) {
         if self.current_tick == 0 {
             self.tick0();
         }
@@ -357,12 +357,12 @@ impl XmrsPlayer {
         }
         self.remaining_samples_in_tick -= 1.0;
 
-        let mut left = 0.0;
-        let mut right = 0.0;
-
         if self.max_loop_count > 0 && self.loop_count >= self.max_loop_count {
             return None;
         }
+
+        let mut left = 0.0;
+        let mut right = 0.0;
 
         for ch in &mut self.channel {
             match ch.next() {
