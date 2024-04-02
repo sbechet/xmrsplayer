@@ -394,12 +394,7 @@ impl Channel {
                     match &mut self.instr {
                         Some(i) => match &mut i.state_sample {
                             Some(s) => {
-                                let final_offset = if s.bits() == 16 {
-                                    self.current.effect_parameter as usize * 256
-                                } else {
-                                    self.current.effect_parameter as usize * 512
-                                };
-                                s.set_position(final_offset);
+                                s.set_position(self.current.effect_parameter as usize * 256);
                             }
                             None => {}
                         },
