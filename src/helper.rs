@@ -138,7 +138,7 @@ pub fn frequency(freq_type: FrequencyType, period: f32, arp_note: f32, period_of
 
             /* FIXME: this is very crappy at best */
             let mut a = 0;
-            let mut octave: i8 = 0;
+            let mut octave: i16 = 0;
 
             /* Find the octave of the current period */
             let period = period * AMIGA_PERIOD_SCALE as f32;
