@@ -636,6 +636,7 @@ impl Channel {
         }
     }
 
+    // TODO: crate a _real_ verity table
     fn tick0_load_note_and_instrument(&mut self) {
         let noteu8: u8 = self.current.note.into();
 
@@ -647,11 +648,13 @@ impl Channel {
                 self.instr = None;
             } else if self.current.has_tone_portamento() {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
+                // FIXME: must i change instr here?
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 /* Sample position is kept, but envelopes are reset */
                 self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD);
 
+                // Instr sample can change here!
                 let instrnr = self.current.instrument as usize - 1;
                 if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
                     // only good instr
