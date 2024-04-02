@@ -103,7 +103,8 @@ impl XmrsPlayer {
     }
 
     /// do a manual goto
-    pub fn goto(&mut self, table_position: usize, row: usize) -> bool {
+    /// default tempo if speed == 0
+    pub fn goto(&mut self, table_position: usize, row: usize, speed: u16) -> bool {
         if table_position < self.module.get_song_length() {
             let num_row = self.module.pattern_order[table_position] as usize;
             if row < self.module.get_num_rows(num_row) {
@@ -113,7 +114,11 @@ impl XmrsPlayer {
                 self.position_jump = true;
 
                 // Cleanup self
-                self.tempo = self.module.default_tempo;
+                self.tempo = if speed == 0 {
+                    self.module.default_tempo
+                } else {
+                    speed
+                };
                 self.bpm = self.module.default_bpm;
                 self.global_volume = 1.0;
 

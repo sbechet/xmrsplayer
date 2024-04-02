@@ -28,21 +28,26 @@ struct Cli {
     #[arg(short = 'a', long, default_value = "0.5")]
     amplification: f32,
 
-    /// Start at a specific pattern order table position
-    #[arg(short = 'p', long, default_value = "0")]
-    position: usize,
-
-    /// How many loop (default: infinity)
-    #[arg(short = 'l', long, default_value = "0")]
-    loops: u8,
+    /// Play only a specific channel (from 1 to n)
+    #[arg(short = 'c', long, default_value = "0")]
+    ch: u8,
 
     /// Turn debugging information on
     #[arg(short = 'd', long, default_value = "false")]
     debug: bool,
 
-    /// Play only a specific channel (from 1 to n)
-    #[arg(short = 'c', long, default_value = "0")]
-    ch: u8,
+    /// How many loop (default: infinity)
+    #[arg(short = 'l', long, default_value = "0")]
+    loops: u8,
+
+    /// Start at a specific pattern order table position
+    #[arg(short = 'p', long, default_value = "0")]
+    position: usize,
+
+    /// Force speed
+    #[arg(short = 's', long, default_value = "0")]
+    speed: u16,
+
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -73,6 +78,7 @@ fn main() -> Result<(), std::io::Error> {
                                 cli.loops,
                                 cli.debug,
                                 cli.ch,
+                                cli.speed,
                             );
                         }
                         Err(e) => {
@@ -94,6 +100,7 @@ fn main() -> Result<(), std::io::Error> {
                                 cli.loops,
                                 cli.debug,
                                 cli.ch,
+                                cli.speed,
                             );
                         }
                         Err(e) => {
@@ -118,6 +125,7 @@ fn rodio_play(
     loops: u8,
     debug: bool,
     ch: u8,
+    speed: u16,
 ) {
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
@@ -138,7 +146,7 @@ fn rodio_play(
             player_lock.set_mute_channel((ch - 1).into(), false);
         }
         player_lock.set_max_loop_count(loops);
-        player_lock.goto(position, 0);
+        player_lock.goto(position, 0, speed);
     }
 
     let player_clone = Arc::clone(&player);
@@ -169,7 +177,7 @@ fn rodio_play(
                     let mut player = player_clone.lock().unwrap();
                     let i = player.get_current_table_index();
                     if i != 0 {
-                        player.goto(i - 1, 0);
+                        player.goto(i - 1, 0, 0);
                     }
                 }
                 Key::ArrowRight => {
@@ -177,7 +185,7 @@ fn rodio_play(
                     let len = module.pattern_order.len();
                     let i = player.get_current_table_index();
                     if i + 1 < len {
-                        player.goto(i + 1, 0);
+                        player.goto(i + 1, 0, 0);
                     }
                 }
                 Key::Char(' ') => {
