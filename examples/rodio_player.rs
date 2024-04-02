@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
+use xmrs::amiga::amiga_module::AmigaModule;
 
 mod bufferedsource;
 use bufferedsource::BufferedSource;
@@ -57,24 +58,51 @@ fn main() -> Result<(), std::io::Error> {
             // println!("The current directory is {}", path.display());
             println!("opening {}", filename);
             let contents = std::fs::read(filename.trim())?;
-            match XmModule::load(&contents) {
-                Ok(xm) => {
-                    drop(contents); // cleanup memory
-                    print!("XM '{}' loaded...", xm.header.name);
-                    let module = Arc::new(xm.to_module());
-                    drop(xm);
-                    println!("Playing {} !", module.name);
-                    rodio_play(
-                        module,
-                        cli.amplification,
-                        cli.position,
-                        cli.loops,
-                        cli.debug,
-                        cli.ch,
-                    );
+            match filename.split('.').last() {
+                Some(extension) if extension == "xm" || extension == "XM" => {
+                    match XmModule::load(&contents) {
+                        Ok(xm) => {
+                            drop(contents); // cleanup memory
+                            let module = Arc::new(xm.to_module());
+                            drop(xm);
+                            println!("Playing {} !", module.name);
+                            rodio_play(
+                                module,
+                                cli.amplification,
+                                cli.position,
+                                cli.loops,
+                                cli.debug,
+                                cli.ch,
+                            );
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    }
+                },
+                Some(extension) if extension == "mod" || extension == "MOD" => {
+                    match AmigaModule::load(&contents) {
+                        Ok(amiga) => {
+                            drop(contents); // cleanup memory
+                            let module = Arc::new(amiga.to_module());
+                            drop(amiga);
+                            println!("Playing {} !", module.name);
+                            rodio_play(
+                                module,
+                                cli.amplification,
+                                cli.position,
+                                cli.loops,
+                                cli.debug,
+                                cli.ch,
+                            );
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    }
                 }
-                Err(e) => {
-                    println!("{:?}", e);
+                Some(_) | None => {
+                    println!("File unknown?");
                 }
             }
         }
