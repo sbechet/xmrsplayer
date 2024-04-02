@@ -66,6 +66,10 @@ impl StateInstrDefault {
         }
     }
 
+    pub fn replace_instr(&mut self, instr: Arc<InstrDefault>) {
+        self.instr = instr;
+    }
+
     pub fn is_enabled(&self) -> bool {
         match &self.state_sample {
             Some(s) => s.is_enabled(),

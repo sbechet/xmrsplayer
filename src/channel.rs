@@ -125,6 +125,8 @@ impl Channel {
                 if !contains(flags, TRIGGER_KEEP_VOLUME) {
                     self.volume = instr.volume;
                 }
+
+                // TODO
                 self.panning = instr.panning;
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
@@ -639,16 +641,27 @@ impl Channel {
 
         // First, load instr
         if self.current.instrument > 0 {
-            if self.current.has_tone_portamento() {
+            if self.current.instrument as usize > self.module.instrument.len() {
+                /* Invalid instrument, Cut current note */
+                self.cut_note();
+                self.instr = None;
+            } else if self.current.has_tone_portamento() {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 /* Sample position is kept, but envelopes are reset */
-                self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION);
-            } else if self.current.instrument as usize > self.module.instrument.len() {
-                /* Invalid instrument, Cut current note */
-                self.cut_note();
-                self.instr = None;
+                self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD);
+
+                let instrnr = self.current.instrument as usize - 1;
+                if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
+                    // only good instr
+                    if id.sample.len() != 0 {
+                        match &mut self.instr {
+                            Some(i) => i.replace_instr(Arc::clone(id)),
+                            _ => {},
+                        }
+                    }
+                }
             } else {
                 let instrnr = self.current.instrument as usize - 1;
                 if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
