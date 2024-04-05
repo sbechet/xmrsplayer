@@ -8,8 +8,8 @@ use core::default::Default;
 #[derive(Clone, Default)]
 pub struct EffectTonePortamento {
     period_helper: PeriodHelper,
-    pub speed: f32,
-    pub goal: f32,
+    speed: f32,
+    goal: f32,
 }
 
 impl EffectTonePortamento {

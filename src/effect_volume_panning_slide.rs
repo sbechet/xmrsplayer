@@ -4,7 +4,7 @@ use core::default::Default;
 
 #[derive(Clone, Default)]
 pub struct EffectVolumePanningSlide {
-    pub value: f32,
+    value: f32,
 }
 
 impl EffectPlugin for EffectVolumePanningSlide {

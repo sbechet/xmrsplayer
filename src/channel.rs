@@ -724,14 +724,14 @@ impl Channel {
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
-        if self.current.effect_type != 0xE || (self.current.effect_parameter >> 4) != 0xD {
+        if !self.current.has_note_delay() {
             self.tick0_load_note_and_instrument();
 
             if self.arpeggio.in_progress() && !self.current.has_arpeggio() {
                 self.arpeggio.retrigger();
             }
 
-            if self.vibrato.in_progress && !self.current.has_vibrato() {
+            if self.vibrato.in_progress() && !self.current.has_vibrato() {
                 self.vibrato.retrigger();
             }
 

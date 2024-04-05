@@ -8,9 +8,34 @@ pub struct MultiRetrigNote {
     note_retrig_vol: f32,
 }
 
+impl MultiRetrigNote {
+    // for historical purpose
+    fn value_historical_computers(&self, vol: f32) -> f32 {
+        match (16.0 * self.note_retrig_vol) as u8 {
+            0 | 8 => vol,
+            rv @ (1 | 2 | 3 | 4 | 5) => vol - ((1 << rv) - 1) as f32,
+            6 => vol * 2.0 / 3.0,
+            7 => vol / 2.0,
+            rv @ (9 | 10 | 11 | 12 | 13) => vol + ((1 << rv) - 9) as f32,
+            14 => vol * 3.0 / 2.0,
+            15 => vol * 2.0,
+            _ => 0.0,
+        }
+    }
+
+    fn value_new_computers(&self, vol: f32) -> f32 {
+        vol * if self.note_retrig_vol <= 0.5 {
+            std::f32::consts::FRAC_PI_2
+                + self.note_retrig_vol * (f32::asin(0.5) - std::f32::consts::FRAC_PI_2)
+        } else {
+            std::f32::consts::PI * (1.0 + self.note_retrig_vol)
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct EffectMultiRetrigNote {
-    pub data: MultiRetrigNote,
+    data: MultiRetrigNote,
     historical: bool,
     tick: f32,
 }
@@ -24,29 +49,6 @@ impl EffectMultiRetrigNote {
             },
             historical,
             ..Default::default()
-        }
-    }
-
-    // for historical purpose
-    fn value_historical_computers(&self, vol: f32) -> f32 {
-        match (16.0 * self.data.note_retrig_vol) as u8 {
-            0 | 8 => vol,
-            rv @ (1 | 2 | 3 | 4 | 5) => vol - ((1 << rv) - 1) as f32,
-            6 => vol * 2.0 / 3.0,
-            7 => vol / 2.0,
-            rv @ (9 | 10 | 11 | 12 | 13) => vol + ((1 << rv) - 9) as f32,
-            14 => vol * 3.0 / 2.0,
-            15 => vol * 2.0,
-            _ => 0.0,
-        }
-    }
-
-    fn value_new_computers(&self, vol: f32) -> f32 {
-        vol * if self.data.note_retrig_vol <= 0.5 {
-            std::f32::consts::FRAC_PI_2
-                + self.data.note_retrig_vol * (f32::asin(0.5) - std::f32::consts::FRAC_PI_2)
-        } else {
-            std::f32::consts::PI * (1.0 + self.data.note_retrig_vol)
         }
     }
 }
@@ -81,9 +83,9 @@ impl EffectPlugin for EffectMultiRetrigNote {
             vol
         } else {
             let mut v = if self.historical {
-                self.value_historical_computers(vol)
+                self.data.value_historical_computers(vol)
             } else {
-                self.value_new_computers(vol)
+                self.data.value_new_computers(vol)
             };
             clamp(&mut v);
             v

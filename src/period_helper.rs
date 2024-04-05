@@ -49,7 +49,7 @@ impl PeriodHelper {
     #[inline(always)]
     fn linear_frequency(period: f32) -> f32 {
         // 8363.0 is historical amiga module sample frequency
-        8363.0 * (2.0f32).powf((64.0 * 6.0 * 12.0 - period) / (64.0 * 12.0))
+        8363.0 * (2.0f32).powf((64.0 * 12.0 * 6.0 - period) / (64.0 * 12.0))
     }
     
     fn amiga_period(note: f32) -> f32 {

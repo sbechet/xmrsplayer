@@ -6,8 +6,8 @@ use crate::period_helper::PeriodHelper;
 #[derive(Default, Clone, Copy, Debug)]
 pub struct VibratoTremolo {
     pub waveform: u8,
-    pub speed: f32,
-    pub depth: f32,
+    speed: f32,
+    depth: f32,
 }
 
 impl VibratoTremolo {
@@ -49,10 +49,10 @@ impl VibratoTremolo {
 #[derive(Default, Clone, Copy, Debug)]
 pub struct EffectVibratoTremolo {
     pub data: VibratoTremolo,
-    pub multiplier: f32,
-    pub in_progress: bool,
-    pub pos: f32,
-    pub value: f32,
+    multiplier: f32,
+    in_progress: bool,
+    pos: f32,
+    value: f32,
 }
 
 impl EffectVibratoTremolo {
