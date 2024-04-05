@@ -250,13 +250,18 @@ impl Channel {
                 /* Rxy: Multi retrig note */
                 if self.multi_retrig_note.tick() == 0.0 {
                     self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE);
-
-                    /* Rxy doesn't affect volume if there's a command in the volume
-                    column, or if the instrument has a volume envelope. */
                     match &self.instr {
                         Some(instr) => {
-                            if self.current.volume != 0 && !instr.volume_envelope.enabled {
+                            if self.volume == 0.0 && !instr.volume_envelope.enabled {
                                 self.volume = self.multi_retrig_note.clamp(self.volume);
+                                // priority on original volume
+                                if self.current.volume >= 0x10 && self.current.volume <= 0x50 {
+                                    self.volume = (self.current.volume - 0x10) as f32 / 64.0;
+                                }
+                                // priority on original panning
+                                if self.current.volume >= 0xC0 && self.current.volume <= 0xCF {
+                                    self.panning = (self.current.volume & 0x0F) as f32 / 16.0;
+                                }
                             }
                         }
                         None => {}
@@ -581,7 +586,7 @@ impl Channel {
             // V - Set volume (0..63)
             0x1..=0x4 => self.volume = (self.current.volume - 0x10) as f32 / 64.0,
             // V - 0x51..0x5F undefined...
-            0x5 => self.volume = 1.0,
+            0x5 => self.volume = (self.current.volume - 0x20) as f32 / 64.0,
             // - - Volume slide down (0..15)
             0x6 => {} // see tick() fn
             // + - Volume slide up (0..15)
