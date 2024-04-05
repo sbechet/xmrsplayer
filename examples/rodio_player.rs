@@ -55,7 +55,7 @@ fn main() -> Result<(), std::io::Error> {
 
     match cli.filename {
         Some(filename) => {
-            Term::stdout().clear_screen().unwrap();
+            // Term::stdout().clear_screen().unwrap();
             println!("--===~ XmRs Player Example ~===--");
             println!("(c) 2023-2024 Sébastien Béchet\n");
             println!("Because demo scene can't die :)\n");

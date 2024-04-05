@@ -7,6 +7,7 @@ use crate::effect_portamento::EffectPortamento;
 use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 use crate::effect_volume_panning_slide::EffectVolumePanningSlide;
+use crate::period_helper::PeriodHelper;
 use crate::triggerkeep::*;
 
 use crate::helper::*;
@@ -16,6 +17,7 @@ use xmrs::prelude::*;
 #[derive(Clone, Default)]
 pub struct Channel {
     module: Arc<Module>,
+    period_helper: PeriodHelper,
     rate: f32,
 
     note: f32,
@@ -67,17 +69,20 @@ pub struct Channel {
 
 impl Channel {
     pub fn new(module: Arc<Module>, rate: f32) -> Self {
-        let linear = if let FrequencyType::LinearFrequencies = module.frequency_type {
-            true
-        } else {
-            false
-        };
+        let period_helper = PeriodHelper::new(module.frequency_type);
+        // let linear = if let FrequencyType::LinearFrequencies = module.frequency_type {
+        //     true
+        // } else {
+        //     false
+        // };
         Self {
             module,
+            period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
             panning: 0.5,
-            vibrato: EffectVibratoTremolo::vibrato(linear),
+            tone_portamento: EffectTonePortamento::new(period_helper.clone()),
+            vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
             multi_retrig_note: EffectMultiRetrigNote::new(false, 0.0, 0.0),
             ..Default::default()
@@ -130,7 +135,7 @@ impl Channel {
                 self.panning = instr.panning;
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
-                    self.period = period(self.module.frequency_type, self.note);
+                    self.period = self.period_helper.period(self.note);
                     instr.update_frequency(
                         self.period,
                         self.arpeggio.value(),
@@ -363,15 +368,9 @@ impl Channel {
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0);
             }
             0x3 => {
-                let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
-                {
-                    1
-                } else {
-                    0
-                };
                 self.tone_portamento.xm_update_effect(
                     self.current.effect_parameter,
-                    freq_type,
+                    1,
                     self.note,
                 );
             }
@@ -625,15 +624,9 @@ impl Channel {
             }
             // M - Tone portamento (0..15)
             0xF => {
-                let freq_type = if let FrequencyType::LinearFrequencies = self.module.frequency_type
-                {
-                    1
-                } else {
-                    0
-                };
                 self.tone_portamento.xm_update_effect(
                     self.current.volume & 0x0F,
-                    16 | freq_type,
+                    16,
                     self.note,
                 );
             }
@@ -677,7 +670,7 @@ impl Channel {
                     if id.sample.len() != 0 {
                         let instr = StateInstrDefault::new(
                             id.clone(),
-                            self.module.frequency_type,
+                            self.period_helper.clone(),
                             self.rate,
                         );
                         self.instr = Some(instr);

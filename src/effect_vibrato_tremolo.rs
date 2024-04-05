@@ -1,4 +1,7 @@
+use xmrs::module::FrequencyType;
+
 use crate::effect::*;
+use crate::period_helper::PeriodHelper;
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct VibratoTremolo {
@@ -67,10 +70,10 @@ impl EffectVibratoTremolo {
         Self::new(VibratoTremolo::default(), 1.0)
     }
 
-    pub fn vibrato(linear: bool) -> Self {
-        match linear {
-            true => Self::new(VibratoTremolo::default(), 2.0 * 4.0),
-            false => Self::new(VibratoTremolo::default(), 2.0),
+    pub fn vibrato(period_helper: &PeriodHelper) -> Self {
+        match period_helper.freq_type {
+            FrequencyType::LinearFrequencies => Self::new(VibratoTremolo::default(), 2.0 * 4.0),
+            FrequencyType::AmigaFrequencies => Self::new(VibratoTremolo::default(), 2.0),
         }
     }
 }

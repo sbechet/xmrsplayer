@@ -1,4 +1,5 @@
 use crate::helper::*;
+use crate::period_helper::PeriodHelper;
 use crate::{
     state_auto_vibrato::StateAutoVibrato, state_envelope::StateEnvelope, state_sample::StateSample,
 };
@@ -23,8 +24,7 @@ pub struct StateInstrDefault {
     instr: Arc<InstrDefault>,
     /// Output frequency
     rate: f32,
-    /// Frequency type
-    freq_type: FrequencyType,
+    period_helper: PeriodHelper,
     /// Sample state
     pub state_sample: Option<StateSample>,
     /// Vibrato state
@@ -47,16 +47,16 @@ pub struct StateInstrDefault {
 }
 
 impl StateInstrDefault {
-    pub fn new(instr: Arc<InstrDefault>, freq_type: FrequencyType, rate: f32) -> Self {
+    pub fn new(instr: Arc<InstrDefault>, period_helper: PeriodHelper, rate: f32) -> Self {
         let v = instr.vibrato.clone();
         let ve = instr.volume_envelope.clone();
         let pe = instr.panning_envelope.clone();
         Self {
             instr,
             rate,
-            freq_type,
+            period_helper: period_helper.clone(),
             state_sample: None,
-            state_vibrato: StateAutoVibrato::new(v, freq_type),
+            state_vibrato: StateAutoVibrato::new(v, period_helper),
             envelope_volume: StateEnvelope::new(ve, 1.0),
             envelope_panning: StateEnvelope::new(pe, 0.5),
             sustained: true,
@@ -131,8 +131,7 @@ impl StateInstrDefault {
     pub fn update_frequency(&mut self, period: f32, arp_note: f32, period_offset: f32) {
         match &mut self.state_sample {
             Some(s) => {
-                let frequency = frequency(
-                    self.freq_type,
+                let frequency = self.period_helper.frequency(
                     period,
                     arp_note,
                     period_offset + self.state_vibrato.period_offset,
