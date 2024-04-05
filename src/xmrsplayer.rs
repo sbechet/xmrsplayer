@@ -283,10 +283,10 @@ impl XmrsPlayer {
         }
         for ch_index in 0..num_channels {
             let ps = &self.module.pattern[pat_idx][current_row][ch_index];
-            self.channel[ch_index].tick0(ps);
             if self.debug {
                 print!("{:?}", ps);
             }
+            self.channel[ch_index].tick0(ps);
             self.tick0_global_effects(ch_index);
             if !in_a_loop && self.channel[ch_index].pattern_loop_count > 0 {
                 in_a_loop = true;
