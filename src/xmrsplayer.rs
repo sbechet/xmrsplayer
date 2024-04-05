@@ -1,6 +1,6 @@
 use crate::channel::Channel;
-use crate::triggerkeep::*;
 use crate::helper::*;
+use crate::triggerkeep::*;
 use std::sync::Arc;
 use xmrs::prelude::*;
 
@@ -206,7 +206,7 @@ impl XmrsPlayer {
                         } else {
                             /* Set loop start point */
                             ch.pattern_loop_origin = self.current_row;
-                            // We wan't a real player! so we do not accept buggy effects :O 
+                            // We wan't a real player! so we do not accept buggy effects :O
                             // Nevertheless we have a workaround to be as compatible as possible with amiga modules
                             // if let self.module.frequency_type = FrequencyType::LinearFrequencies {
                             //     // Replicate FT2 E60 bug

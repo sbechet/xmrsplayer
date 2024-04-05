@@ -3,9 +3,9 @@ use console::{Key, Term};
 use rodio::Sink;
 use std::sync::{Arc, Mutex};
 
+use xmrs::amiga::amiga_module::AmigaModule;
 use xmrs::prelude::*;
 use xmrs::xm::xmmodule::XmModule;
-use xmrs::amiga::amiga_module::AmigaModule;
 
 mod bufferedsource;
 use bufferedsource::BufferedSource;
@@ -47,7 +47,6 @@ struct Cli {
     /// Force speed
     #[arg(short = 's', long, default_value = "0")]
     speed: u16,
-
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -85,7 +84,7 @@ fn main() -> Result<(), std::io::Error> {
                             println!("{:?}", e);
                         }
                     }
-                },
+                }
                 Some(extension) if extension == "mod" || extension == "MOD" => {
                     match AmigaModule::load(&contents) {
                         Ok(amiga) => {

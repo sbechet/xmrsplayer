@@ -358,21 +358,16 @@ impl Channel {
                 .arpeggio
                 .xm_update_effect(self.current.effect_parameter, 0, 0.0),
             0x1 => {
-                self
-                .portamento_up
-                .xm_update_effect(self.current.effect_parameter, 0, 1.0);
+                self.portamento_up
+                    .xm_update_effect(self.current.effect_parameter, 0, 1.0);
             }
             0x2 => {
-                self
-                .portamento_down
-                .xm_update_effect(self.current.effect_parameter, 0, 0.0);
+                self.portamento_down
+                    .xm_update_effect(self.current.effect_parameter, 0, 0.0);
             }
             0x3 => {
-                self.tone_portamento.xm_update_effect(
-                    self.current.effect_parameter,
-                    1,
-                    self.note,
-                );
+                self.tone_portamento
+                    .xm_update_effect(self.current.effect_parameter, 1, self.note);
             }
             0x4 => self
                 .vibrato
@@ -624,11 +619,8 @@ impl Channel {
             }
             // M - Tone portamento (0..15)
             0xF => {
-                self.tone_portamento.xm_update_effect(
-                    self.current.volume & 0x0F,
-                    16,
-                    self.note,
-                );
+                self.tone_portamento
+                    .xm_update_effect(self.current.volume & 0x0F, 16, self.note);
             }
             _ => {}
         }
@@ -650,7 +642,9 @@ impl Channel {
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 /* Sample position is kept, but envelopes are reset */
-                self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD);
+                self.trigger_note(
+                    TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
+                );
 
                 // Instr sample can change here!
                 let instrnr = self.current.instrument as usize - 1;
@@ -659,7 +653,7 @@ impl Channel {
                     if id.sample.len() != 0 {
                         match &mut self.instr {
                             Some(i) => i.replace_instr(Arc::clone(id)),
-                            _ => {},
+                            _ => {}
                         }
                     }
                 }

@@ -60,11 +60,12 @@ impl StateAutoVibrato {
             };
             self.pos += self.vibrato.speed;
             self.period_offset = self.amp * self.vibrato.waveform.value(self.pos);
-            self.period_offset /= if let FrequencyType::LinearFrequencies = self.period_helper.freq_type {
-                1.0
-            } else {
-                4.0
-            }
+            self.period_offset /=
+                if let FrequencyType::LinearFrequencies = self.period_helper.freq_type {
+                    1.0
+                } else {
+                    4.0
+                }
         }
     }
 }

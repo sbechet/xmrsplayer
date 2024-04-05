@@ -47,17 +47,15 @@ impl EffectXM2EffectPlugin for EffectPortamento {
         match portype {
             0 => {
                 if param == 0 {
-                    return None
+                    return None;
                 }
             }
             1 | 2 => {
                 if param & 0x0F == 0 {
-                    return None
+                    return None;
                 }
             }
-            _ => {
-                return None
-            }
+            _ => return None,
         }
 
         let p = match portype {
