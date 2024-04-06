@@ -38,7 +38,7 @@ impl StateAutoVibrato {
             self.pos = 0.0;
             if self.vibrato.sweep > 0.0 {
                 self.amp = 0.0;
-                self.sweep = self.vibrato.depth / self.vibrato.sweep;
+                self.sweep = self.vibrato.depth / (256.0 * self.vibrato.sweep);
             } else {
                 self.amp = self.vibrato.depth;
                 self.sweep = 0.0;
