@@ -641,10 +641,14 @@ impl Channel {
                 // FIXME: must i change instr here?
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
-                /* Sample position is kept, but envelopes are reset */
-                self.trigger_note(
-                    TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
-                );
+                if self.current.has_volume_slide() {
+                    self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_PERIOD);
+                } else {
+                    /* Sample position is kept, but envelopes are reset */
+                    self.trigger_note(
+                        TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
+                    );
+                }
 
                 // Instr sample can change here!
                 let instrnr = self.current.instrument as usize - 1;
