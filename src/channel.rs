@@ -501,14 +501,12 @@ impl Channel {
                          * note, EDy (y ≠ 0) does not. */
                         if let Note::None = self.current.note {
                             if self.current.instrument == 0 {
-                                let flags = TRIGGER_KEEP_VOLUME;
-
                                 if self.current.effect_parameter & 0x0F != 0 {
                                     self.note = self.orig_note;
-                                    self.trigger_note(flags);
+                                    self.trigger_note(TRIGGER_KEEP_VOLUME);
                                 } else {
                                     self.trigger_note(
-                                        flags | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION,
+                                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION,
                                     );
                                 }
                             }
