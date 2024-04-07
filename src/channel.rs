@@ -147,6 +147,30 @@ impl Channel {
         }
     }
 
+    pub fn tickn_update_instr(&mut self) {
+        match &mut self.instr {
+            Some(instr) => {
+                let panning: f32 = self.panning
+                + (instr.envelope_panning.value - 0.5)
+                    * (0.5 - (self.panning - 0.5).abs())
+                    * 2.0;
+                let mut volume = 0.0;
+
+                if !self.tremor_on {
+                    volume = self.volume + self.tremolo.value();
+                    clamp(&mut volume);
+                    volume *= instr.get_volume();
+                }
+
+                self.actual_volume[0] = volume * panning.sqrt();
+                self.actual_volume[1] = volume * (1.0 - panning).sqrt();
+
+                instr.update_frequency(self.period, self.arpeggio.value(), self.vibrato.value())
+            }
+            None => {}
+        }
+    }
+
     fn tick_effects(&mut self, current_tick: u16) {
         match self.current.effect_type {
             0 => {
@@ -323,33 +347,11 @@ impl Channel {
             None => return,
         }
 
-        if current_tick != 0 {
-            self.tick_volume_effects();
-        }
+        self.tick_volume_effects();
 
         self.tick_effects(current_tick);
 
-        match &mut self.instr {
-            Some(instr) => {
-                let panning: f32 = self.panning
-                    + (instr.envelope_panning.value - 0.5)
-                        * (0.5 - (self.panning - 0.5).abs())
-                        * 2.0;
-                let mut volume = 0.0;
-
-                if !self.tremor_on {
-                    volume = self.volume + self.tremolo.value();
-                    clamp(&mut volume);
-                    volume *= instr.get_volume();
-                }
-
-                self.actual_volume[0] = volume * panning.sqrt();
-                self.actual_volume[1] = volume * (1.0 - panning).sqrt();
-
-                instr.update_frequency(self.period, self.arpeggio.value(), self.vibrato.value());
-            }
-            None => {}
-        }
+        self.tickn_update_instr();
     }
 
     fn tick0_effects(&mut self, noteu8: u8) {
@@ -732,13 +734,9 @@ impl Channel {
             if self.vibrato.in_progress() && !self.current.has_vibrato() {
                 self.vibrato.retrigger();
             }
+            
+            self.tickn_update_instr();
 
-            match &mut self.instr {
-                Some(instr) => {
-                    instr.update_frequency(self.period, self.arpeggio.value(), self.vibrato.value())
-                }
-                None => {}
-            }
         } else {
             self.note_delay_param = self.current.effect_parameter & 0x0F;
         }

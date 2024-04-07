@@ -322,11 +322,7 @@ impl XmrsPlayer {
         }
     }
 
-    pub fn tick(&mut self) {
-        if self.current_tick == 0 {
-            self.tick0();
-        }
-
+    fn tick(&mut self) {
         for ch in &mut self.channel {
             ch.tick(self.current_tick);
 
@@ -348,23 +344,31 @@ impl XmrsPlayer {
             }
             clamp(&mut self.global_volume);
         }
+    }
 
-        self.current_tick += 1;
-        if self.current_tick >= self.tempo + self.extra_ticks {
-            self.current_tick = 0;
-            self.extra_ticks = 0;
+    pub fn step(&mut self) {
+        if self.remaining_samples_in_tick <= 0.0 {
+            if self.current_tick == 0 {
+                self.tick0();
+            } else {
+                self.tick();
+            }
+
+            self.current_tick += 1;
+            if self.current_tick >= self.tempo + self.extra_ticks {
+                self.current_tick = 0;
+                self.extra_ticks = 0;
+            }
+
+            /* FT2 manual says number of ticks / second = BPM * 0.4 */
+            self.remaining_samples_in_tick += self.sample_rate / (self.bpm as f32 * 0.4);
         }
-
-        /* FT2 manual says number of ticks / second = BPM * 0.4 */
-        self.remaining_samples_in_tick += self.sample_rate / (self.bpm as f32 * 0.4);
+        self.remaining_samples_in_tick -= 1.0;
     }
 
     // return (left, right) samples
     fn sample(&mut self) -> Option<(f32, f32)> {
-        if self.remaining_samples_in_tick <= 0.0 {
-            self.tick();
-        }
-        self.remaining_samples_in_tick -= 1.0;
+        self.step();
 
         if self.max_loop_count > 0 && self.loop_count >= self.max_loop_count {
             return None;
