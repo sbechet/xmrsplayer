@@ -18,8 +18,7 @@ impl EffectPlugin for EffectArpeggio {
     fn tick0(&mut self, param1: f32, param2: f32) -> f32 {
         self.data.offset1 = param1;
         self.data.offset2 = param2;
-        self.tick = 0;
-        self.value()
+        self.retrigger()
     }
 
     fn tick(&mut self) -> f32 {
