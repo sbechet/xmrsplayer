@@ -154,7 +154,7 @@ impl StateInstrDefault {
 
     fn select_sample(&mut self, num: usize) -> bool {
         if num < self.instr.sample.len() {
-            let sample = self.instr.sample[num].clone();
+            let sample = Arc::clone(&self.instr.sample[num]);
             let state_sample = StateSample::new(sample, self.rate);
             self.panning = state_sample.get_panning();
             self.volume = state_sample.get_volume();
