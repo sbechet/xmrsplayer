@@ -506,7 +506,9 @@ impl Channel {
                                     self.trigger_note(TRIGGER_KEEP_VOLUME);
                                 } else {
                                     self.trigger_note(
-                                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION,
+                                        TRIGGER_KEEP_VOLUME
+                                            | TRIGGER_KEEP_PERIOD
+                                            | TRIGGER_KEEP_SAMPLE_POSITION,
                                     );
                                 }
                             }
