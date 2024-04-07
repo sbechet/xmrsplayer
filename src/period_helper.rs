@@ -39,13 +39,14 @@ impl PeriodHelper {
 
     #[inline(always)]
     fn linear_period(note: f32) -> f32 {
-        64.0 * (10.0 * 12.0 - note)
+        10.0 * 12.0 * 16.0 * 4.0 - note * 16.0 * 4.0
     }
 
     #[inline(always)]
     fn linear_frequency(period: f32) -> f32 {
         // 8363.0 is historical amiga module sample frequency
-        8363.0 * (2.0f32).powf((64.0 * 12.0 * 6.0 - period) / (64.0 * 12.0))
+        // 12.0 halftones
+        8363.0 * (2.0f32).powf((6.0 * 12.0 * 16.0 * 4.0 - period) / (12.0 * 16.0 * 4.0))
     }
 
     fn amiga_period(note: f32) -> f32 {
@@ -77,6 +78,7 @@ impl PeriodHelper {
         if period == 0.0 {
             0.0
         } else {
+            // PAL Value = 7093789.2, NTSC Value = 7159090.5
             7093789.2 / (period * 2.0)
         }
     }
