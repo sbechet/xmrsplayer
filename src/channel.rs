@@ -69,6 +69,7 @@ pub struct Channel {
 
 impl Channel {
     pub fn new(module: Arc<Module>, rate: f32) -> Self {
+        let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
         let period_helper = PeriodHelper::new(module.frequency_type);
         Self {
             module,
@@ -76,11 +77,11 @@ impl Channel {
             rate,
             volume: 1.0,
             panning: 0.5,
-            arpeggio: EffectArpeggio::new(false),
+            arpeggio: EffectArpeggio::new(is_ft2),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
-            multi_retrig_note: EffectMultiRetrigNote::new(false, 0.0, 0.0),
+            multi_retrig_note: EffectMultiRetrigNote::new(is_ft2, 0.0, 0.0),
             ..Default::default()
         }
     }
