@@ -70,17 +70,13 @@ pub struct Channel {
 impl Channel {
     pub fn new(module: Arc<Module>, rate: f32) -> Self {
         let period_helper = PeriodHelper::new(module.frequency_type);
-        // let linear = if let FrequencyType::LinearFrequencies = module.frequency_type {
-        //     true
-        // } else {
-        //     false
-        // };
         Self {
             module,
             period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
             panning: 0.5,
+            arpeggio: EffectArpeggio::new(false),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
@@ -138,7 +134,7 @@ impl Channel {
                     self.period = self.period_helper.period(self.note);
                     instr.update_frequency(
                         self.period,
-                        self.arpeggio.value(),
+                        0.0,
                         self.vibrato.value(),
                     );
                 }
@@ -236,7 +232,7 @@ impl Channel {
                                 self.trigger_note(TRIGGER_KEEP_VOLUME);
                                 match &mut self.instr {
                                     Some(instr) => {
-                                        instr.envelopes();
+                                        instr.tick();
                                     }
                                     None => {}
                                 }
@@ -253,12 +249,6 @@ impl Channel {
                         /* EDy: Note delay */
                         if self.note_delay_param as u16 == current_tick {
                             self.tick0_load_note_and_instrument();
-                            match &mut self.instr {
-                                Some(instr) => {
-                                    instr.envelopes();
-                                }
-                                None => {}
-                            }
                         }
                     }
                     _ => {}
@@ -346,11 +336,8 @@ impl Channel {
             }
             None => return,
         }
-
         self.tick_volume_effects();
-
         self.tick_effects(current_tick);
-
         self.tickn_update_instr();
     }
 
@@ -455,16 +442,11 @@ impl Channel {
                         /* E5y: Set finetune */
                         if note_is_valid(noteu8) {
                             match &mut self.instr {
-                                Some(i) => match &mut i.state_sample {
-                                    Some(s) => {
-                                        // replacing state_sample.get_finetuned_note()...
-                                        let finetune =
-                                            (self.current.effect_parameter & 0x0F) as f32 / 16.0
-                                                - 0.5;
-                                        let finetuned_note = s.relative_note as f32 + finetune;
-                                        self.note = noteu8 as f32 - 1.0 + finetuned_note
-                                    }
-                                    None => {}
+                                Some(i) => {
+                                    let finetune =
+                                        (self.current.effect_parameter & 0x0F) as f32 / 16.0
+                                            - 0.5;
+                                    self.note = noteu8 as f32 - 1.0 + i.get_finetuned_note(finetune);
                                 },
                                 None => {}
                             }
@@ -628,6 +610,32 @@ impl Channel {
         }
     }
 
+    fn tick0_change_instr(&mut self, sample_only: bool) {
+        let instrnr = self.current.instrument as usize - 1;
+
+        if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
+            // only good instr
+            if id.sample.len() != 0 {
+
+                if sample_only {
+                    match &mut self.instr {
+                        Some(i) => i.replace_instr(Arc::clone(id)),
+                        _ => {}
+                    }
+                } else {
+                    let instr = StateInstrDefault::new(
+                        id.clone(),
+                        self.period_helper.clone(),
+                        self.rate,
+                    );
+                    self.instr = Some(instr);
+                }
+            }
+        } else {
+            // TODO
+        }
+    }
+
     // TODO: crate a _real_ verity table
     fn tick0_load_note_and_instrument(&mut self) {
         let noteu8: u8 = self.current.note.into();
@@ -640,7 +648,7 @@ impl Channel {
                 self.instr = None;
             } else if self.current.has_tone_portamento() {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
-                // FIXME: must i change instr here?
+                self.tick0_change_instr(true);
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 if self.current.has_volume_slide() {
@@ -651,33 +659,9 @@ impl Channel {
                         TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
                     );
                 }
-
-                // Instr sample can change here!
-                let instrnr = self.current.instrument as usize - 1;
-                if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
-                    // only good instr
-                    if id.sample.len() != 0 {
-                        match &mut self.instr {
-                            Some(i) => i.replace_instr(Arc::clone(id)),
-                            _ => {}
-                        }
-                    }
-                }
+                self.tick0_change_instr(true);
             } else {
-                let instrnr = self.current.instrument as usize - 1;
-                if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
-                    // only good instr
-                    if id.sample.len() != 0 {
-                        let instr = StateInstrDefault::new(
-                            id.clone(),
-                            self.period_helper.clone(),
-                            self.rate,
-                        );
-                        self.instr = Some(instr);
-                    }
-                } else {
-                    // TODO
-                }
+                self.tick0_change_instr(false);
             }
         }
 
@@ -688,13 +672,13 @@ impl Channel {
                     if self.current.has_tone_portamento() {
                         match &i.state_sample {
                             Some(s) if s.is_enabled() => {
-                                self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note()
+                                self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note(0.0)
                             }
                             _ => self.cut_note(),
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
-                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note();
+                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note(0.0);
                             self.note = self.orig_note;
                         }
 

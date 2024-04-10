@@ -113,7 +113,7 @@ impl StateInstrDefault {
         self.volume_fadeout * self.envelope_volume.value * self.volume
     }
 
-    pub fn envelopes(&mut self) {
+    fn envelopes(&mut self) {
         // Volume
         if self.volume_envelope.enabled {
             if !self.sustained {
@@ -125,6 +125,15 @@ impl StateInstrDefault {
         // Panning
         if self.panning_envelope.enabled {
             self.envelope_panning.tick(self.sustained);
+        }
+    }
+
+
+    /// use sample finetune or force if finetune arg!=0
+    pub fn get_finetuned_note(&self, finetune: f32) -> f32 {
+        match &self.state_sample {
+            Some(s) if s.is_enabled() => s.get_finetuned_note(finetune),
+            _ => 0.0,
         }
     }
 

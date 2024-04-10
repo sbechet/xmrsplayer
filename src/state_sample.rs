@@ -75,8 +75,13 @@ impl StateSample {
         self.sample.volume
     }
 
-    pub fn get_finetuned_note(&self) -> f32 {
-        self.sample.relative_note as f32 + self.sample.finetune
+    /// use sample finetune or force if finetune arg!=0
+    pub fn get_finetuned_note(&self, finetune: f32) -> f32 {
+        if finetune == 0.0 {
+            self.sample.relative_note as f32 + self.sample.finetune
+        } else {
+            self.sample.relative_note as f32 + finetune
+        }
     }
 
     fn tick(&mut self) -> f32 {
