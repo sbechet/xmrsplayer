@@ -167,6 +167,16 @@ impl Channel {
         }
     }
 
+    fn semitone_slide(&mut self) {
+        let finetune = match &mut self.instr {
+            Some(instr) => {
+                instr.get_finetune()
+            }
+            None => 0.0,
+        };
+        self.period = self.period_helper.adjust_period_from_note(self.period, 0.0, finetune);
+    }
+
     fn tick_effects(&mut self, current_tick: u16) {
         match self.current.effect_type {
             0 => {
@@ -190,7 +200,7 @@ impl Channel {
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
                 if self.porta_semitone_slides {
-                    // TODO: Tone portamento effects slide by semitones
+                    self.semitone_slide();
                 }
             }
             4 if current_tick != 0 => {
@@ -202,7 +212,7 @@ impl Channel {
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
                 if self.porta_semitone_slides {
-                    // TODO: Tone portamento effects slide by semitones
+                    self.semitone_slide();
                 }
                 // now volume slide
                 self.volume += self.volume_slide.tick();
@@ -324,6 +334,9 @@ impl Channel {
                 /* M - Tone portamento */
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
+                if self.porta_semitone_slides {
+                    self.semitone_slide();
+                }
             }
             _ => {}
         }

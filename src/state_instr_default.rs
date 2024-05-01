@@ -144,6 +144,14 @@ impl StateInstrDefault {
         }
     }
 
+    /// get finetune only
+    pub fn get_finetune(&self) -> f32 {
+        match &self.state_sample {
+            Some(s) if s.is_enabled() => s.get_finetune(),
+            _ => 0.0,
+        }
+    }
+
     pub fn update_frequency(&mut self, period: f32, arp_note: f32, period_offset: f32) {
         match &mut self.state_sample {
             Some(s) => {

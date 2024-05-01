@@ -38,6 +38,7 @@ pub struct XmrsPlayer {
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
     debug: bool,
+    historical: bool,
 }
 
 impl XmrsPlayer {
@@ -67,6 +68,7 @@ impl XmrsPlayer {
             max_loop_count: 0,
             right_sample: None,
             debug: false,
+            historical,
         }
     }
 
@@ -206,12 +208,10 @@ impl XmrsPlayer {
                         } else {
                             /* Set loop start point */
                             ch.pattern_loop_origin = self.current_row;
-                            // We wan't a real player! so we do not accept buggy effects :O
-                            // Nevertheless we have a workaround to be as compatible as possible with amiga modules
-                            // if let self.module.frequency_type = FrequencyType::LinearFrequencies {
-                            //     // Replicate FT2 E60 bug
-                            //     self.jump_row = ch.pattern_loop_origin;
-                            // }
+                            if self.historical {
+                                // Replicate FT2 E60 bug
+                                self.jump_row = ch.pattern_loop_origin;
+                            }
                         }
                     }
                     0xE => {

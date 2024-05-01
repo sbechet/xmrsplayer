@@ -142,7 +142,9 @@ fn rodio_play(
         player_lock.amplification = amplification;
         if debug {
             println!("Debug on");
-            println!("FT2 Historical XM detected.")
+            if is_ft2 {
+                println!("FT2 Historical XM detected.")
+            }
         }
         player_lock.debug(debug);
         if ch != 0 {

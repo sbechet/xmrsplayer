@@ -147,7 +147,7 @@ impl PeriodHelper {
     }
 
     /// adjust period to nearest semitones
-    fn adjust_period_from_note(&self, period: f32, arp_note: f32, finetune: f32) -> f32 {
+    pub fn adjust_period_from_note(&self, period: f32, arp_note: f32, finetune: f32) -> f32 {
         if self.historical {
             let finetune = (finetune * 127.0) as i16;
             self.adjust_period_from_note_historical(period as u16, arp_note as u16, finetune)

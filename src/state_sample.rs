@@ -99,6 +99,11 @@ impl StateSample {
         }
     }
 
+    /// get finetune only
+    pub fn get_finetune(&self) -> f32 {
+        self.sample.finetune
+    }
+
     fn tick(&mut self) -> f32 {
         let a: u32 = self.position as u32;
         let b: u32 = a + 1;
