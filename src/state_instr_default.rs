@@ -66,6 +66,13 @@ impl StateInstrDefault {
         }
     }
 
+    pub fn get_sample_c4_rate(&self) -> Option<f32> {
+        match &self.state_sample {
+            Some(s) => s.get_sample_c4_rate(&self.period_helper),
+            None => None,
+        }
+    }
+
     pub fn replace_instr(&mut self, instr: Arc<InstrDefault>) {
         self.instr = instr;
     }

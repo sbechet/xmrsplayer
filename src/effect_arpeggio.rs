@@ -31,7 +31,7 @@ impl EffectArpeggio {
         self.tick
     }
 
-    // No way to accept that today!
+    // No way to accept that bug today!
     fn historical_ft2_tick(&self) -> u8 {
         match self.tick {
             0..=15 => self.tick % 3,

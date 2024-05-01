@@ -83,9 +83,14 @@ fn cpal_play(
     loops: u8,
     debug: bool,
 ) -> Arc<Mutex<XmrsPlayer>> {
+
+    // try to detect FT2 to play historical bugs
+    let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
+
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
         module.clone(),
         SAMPLE_RATE as f32,
+        is_ft2,
     )));
 
     {

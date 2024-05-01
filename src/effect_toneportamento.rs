@@ -78,7 +78,7 @@ impl EffectXM2EffectPlugin for EffectTonePortamento {
         }
 
         if note != 0.0 {
-            self.goal = self.period_helper.period(note);
+            self.goal = self.period_helper.note_to_period(note);
             self.retrigger();
         }
     }

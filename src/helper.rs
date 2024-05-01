@@ -1,6 +1,3 @@
-pub const DEBUG: bool = false;
-pub const LINEAR_INTERPOLATION: bool = true;
-
 #[inline(always)]
 pub fn note_is_valid(n: u8) -> bool {
     n > 0 && n < 97
@@ -8,7 +5,8 @@ pub fn note_is_valid(n: u8) -> bool {
 
 #[inline(always)]
 pub fn lerp(u: f32, v: f32, t: f32) -> f32 {
-    u + t * (v - u)
+    // t * (v - u) + u
+    t.mul_add(v-u, u)
 }
 
 #[inline(always)]
@@ -42,11 +40,7 @@ pub fn clamp_down(value: &mut f32) {
 
 #[inline(always)]
 pub fn clamp(value: &mut f32) {
-    if *value > 1.0 {
-        *value = 1.0;
-    } else if *value < 0.0 {
-        *value = 0.0;
-    }
+    *value = value.clamp(0.0, 1.0);
 }
 
 #[inline(always)]

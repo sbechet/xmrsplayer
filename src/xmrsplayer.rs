@@ -41,7 +41,7 @@ pub struct XmrsPlayer {
 }
 
 impl XmrsPlayer {
-    pub fn new(module: Arc<Module>, sample_rate: f32) -> Self {
+    pub fn new(module: Arc<Module>, sample_rate: f32, historical: bool) -> Self {
         let num_channels = module.get_num_channels();
         Self {
             module: module.clone(),
@@ -61,7 +61,7 @@ impl XmrsPlayer {
             jump_dest: 0,
             jump_row: 0,
             extra_ticks: 0,
-            channel: vec![Channel::new(module.clone(), sample_rate); num_channels],
+            channel: vec![Channel::new(module.clone(), sample_rate, historical); num_channels],
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             loop_count: 0,
             max_loop_count: 0,

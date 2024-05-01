@@ -68,20 +68,19 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(module: Arc<Module>, rate: f32) -> Self {
-        let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
-        let period_helper = PeriodHelper::new(module.frequency_type);
+    pub fn new(module: Arc<Module>, rate: f32, historical: bool) -> Self {
+        let period_helper = PeriodHelper::new(module.frequency_type, historical);
         Self {
             module,
             period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
             panning: 0.5,
-            arpeggio: EffectArpeggio::new(is_ft2),
+            arpeggio: EffectArpeggio::new(historical),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
-            multi_retrig_note: EffectMultiRetrigNote::new(is_ft2, 0.0, 0.0),
+            multi_retrig_note: EffectMultiRetrigNote::new(historical, 0.0, 0.0),
             ..Default::default()
         }
     }
@@ -132,7 +131,7 @@ impl Channel {
                 self.panning = instr.panning;
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
-                    self.period = self.period_helper.period(self.note);
+                    self.period = self.period_helper.note_to_period(self.note);
                     instr.update_frequency(
                         self.period,
                         0.0,

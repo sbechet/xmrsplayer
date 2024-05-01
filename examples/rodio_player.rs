@@ -28,7 +28,7 @@ struct Cli {
     #[arg(short = 'a', long, default_value = "0.5")]
     amplification: f32,
 
-    /// Play only a specific channel (from 1 to n)
+    /// Play only a specific channel (from 1 to n, 0 for all)
     #[arg(short = 'c', long, default_value = "0")]
     ch: u8,
 
@@ -129,15 +129,20 @@ fn rodio_play(
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
+    // try to detect FT2 to play historical bugs
+    let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
+
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
         Arc::clone(&module),
         SAMPLE_RATE as f32,
+        is_ft2
     )));
     {
         let mut player_lock = player.lock().unwrap();
         player_lock.amplification = amplification;
         if debug {
             println!("Debug on");
+            println!("FT2 Historical XM detected.")
         }
         player_lock.debug(debug);
         if ch != 0 {
