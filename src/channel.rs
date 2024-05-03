@@ -347,7 +347,13 @@ impl Channel {
             Some(instr) => {
                 instr.tick();
             }
-            None => return,
+            None => {
+                if self.current.has_note_delay() {
+                    self.tick_effects(current_tick);
+                    self.tickn_update_instr();
+                }
+                return
+            },
         }
         self.tick_volume_effects();
         self.tick_effects(current_tick);
