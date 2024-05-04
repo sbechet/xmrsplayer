@@ -351,7 +351,9 @@ impl XmrsPlayer {
             if self.current_tick == 0 {
                 self.tick0();
             } else {
-                self.tick();
+                if self.extra_ticks == 0 {
+                    self.tick();
+                }
             }
 
             self.current_tick += 1;
