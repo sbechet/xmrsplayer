@@ -463,9 +463,10 @@ impl Channel {
                             match &mut self.instr {
                                 Some(i) => {
                                     let finetune =
-                                        (self.current.effect_parameter & 0x0F) as f32 / 16.0
-                                            - 0.5;
+                                        (self.current.effect_parameter & 0x0F) as f32 / 8.0
+                                            - 1.0;
                                     self.note = noteu8 as f32 - 1.0 + i.get_finetuned_note(finetune);
+                                    self.period = self.period_helper.note_to_period(self.note);
                                 },
                                 None => {}
                             }
