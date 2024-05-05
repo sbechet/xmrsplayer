@@ -66,6 +66,10 @@ impl StateInstrDefault {
         }
     }
 
+    pub fn has_volume_envelope(&self) -> bool {
+        self.envelope_volume.has_volume_envelope()
+    }
+
     pub fn get_sample_c4_rate(&self) -> Option<f32> {
         match &self.state_sample {
             Some(s) => s.get_sample_c4_rate(&self.period_helper),
@@ -110,9 +114,10 @@ impl StateInstrDefault {
         /* Key Off */
         self.sustained = false;
 
-        /* If no volume envelope is used, also cut the note */
-        if !self.instr.volume_envelope.enabled && self.instr.volume_fadeout == 0.0 {
-            self.cut_note();
+        if !self.envelope_volume.has_volume_envelope() {
+            if self.instr.volume_fadeout == 0.0 {
+                self.cut_note();
+            }
         }
     }
 

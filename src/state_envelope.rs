@@ -21,6 +21,10 @@ impl StateEnvelope {
         }
     }
 
+    pub fn has_volume_envelope(&self) -> bool {
+        self.env.enabled
+    }
+
     pub fn reset(&mut self) {
         self.value = self.default_value;
         self.counter = 0;

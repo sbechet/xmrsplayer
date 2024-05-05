@@ -99,10 +99,20 @@ impl Channel {
         self.volume = 0.0;
     }
 
-    fn key_off(&mut self) {
+    fn key_off(&mut self, tick: u16) {
         match &mut self.instr {
             Some(i) => {
                 i.key_off();
+
+                if ! i.has_volume_envelope() {
+                    if tick == 0 && (self.current.instrument != 0 || self.current.volume != 0) {
+                        self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
+                    } else {
+                        self.cut_note();
+                    }
+                } else {
+                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
+                }
             }
             None => self.cut_note(),
         }
@@ -258,7 +268,7 @@ impl Channel {
                     0xD => {
                         /* EDy: Note delay */
                         if self.note_delay_param as u16 == current_tick {
-                            self.tick0_load_note_and_instrument();
+                            self.tick0_load_instrument_and_note();
                             // Volume effect
                             self.tick0_volume_effects();
                             // Effects
@@ -271,7 +281,7 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if current_tick == self.current.effect_parameter as u16 {
-                    self.key_off();
+                    self.key_off(current_tick);
                 }
             }
             0x19 if current_tick != 0 => {
@@ -529,7 +539,7 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if 0 == self.current.effect_parameter as u16 {
-                    self.key_off();
+                    self.key_off(0);
                 }
             }
             0x15 => {
@@ -667,9 +677,7 @@ impl Channel {
         }
     }
 
-    // TODO: crate a _real_ verity table
-    fn tick0_load_note_and_instrument(&mut self) {
-        // First, load instr
+    fn tick0_load_instrument(&mut self) {
         if self.current.instrument > 0 {
             if self.current.instrument as usize > self.module.instrument.len() {
                 /* Invalid instrument, Cut current note */
@@ -693,8 +701,9 @@ impl Channel {
                 self.tick0_change_instr(false);
             }
         }
+    }
 
-        // Next, choose sample from note
+    fn tick0_load_note(&mut self) {
         let noteu8 = self.current.note.into();
         if note_is_valid(noteu8) {
             match &mut self.instr {
@@ -725,7 +734,16 @@ impl Channel {
                 None => self.cut_note(),
             }
         } else if let Note::KeyOff = self.current.note {
-            self.key_off();
+            self.key_off(0);
+        }
+    }
+
+    fn tick0_load_instrument_and_note(&mut self) {
+        if self.current.effect_type != 0x14 {
+            // First, load instr
+            self.tick0_load_instrument();
+            // Next, choose sample from note
+            self.tick0_load_note();
         }
     }
 
@@ -733,10 +751,8 @@ impl Channel {
         self.current = pattern_slot.clone();
 
         if !self.current.has_note_delay() {
-            /* load note and instrument only if no key off */
-            if self.current.effect_type != 0x14 {
-                self.tick0_load_note_and_instrument();
-            }
+            /* load instrument then note only if no key off */
+            self.tick0_load_instrument_and_note();
             // Volume effect
             self.tick0_volume_effects();
             // Effects
