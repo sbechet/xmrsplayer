@@ -111,7 +111,7 @@ impl StateInstrDefault {
         self.sustained = false;
 
         /* If no volume envelope is used, also cut the note */
-        if !self.instr.volume_envelope.enabled {
+        if !self.instr.volume_envelope.enabled && self.instr.volume_fadeout == 0.0 {
             self.cut_note();
         }
     }
@@ -122,11 +122,11 @@ impl StateInstrDefault {
 
     fn envelopes(&mut self) {
         // Volume
+        if !self.sustained {
+            self.volume_fadeout -= self.instr.volume_fadeout;
+            clamp_down(&mut self.volume_fadeout);
+        }
         if self.volume_envelope.enabled {
-            if !self.sustained {
-                self.volume_fadeout -= self.instr.volume_fadeout;
-                clamp_down(&mut self.volume_fadeout);
-            }
             self.envelope_volume.tick(self.sustained);
         }
         // Panning

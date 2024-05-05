@@ -259,6 +259,10 @@ impl Channel {
                         /* EDy: Note delay */
                         if self.note_delay_param as u16 == current_tick {
                             self.tick0_load_note_and_instrument();
+                            // Volume effect
+                            self.tick0_volume_effects();
+                            // Effects
+                            self.tick0_effects();
                         }
                     }
                     _ => {}
@@ -360,7 +364,8 @@ impl Channel {
         self.tickn_update_instr();
     }
 
-    fn tick0_effects(&mut self, noteu8: u8) {
+    fn tick0_effects(&mut self) {
+        let noteu8 = self.current.note.into();
         match self.current.effect_type {
             0x0 => self
                 .arpeggio
@@ -521,6 +526,12 @@ impl Channel {
                     _ => {}
                 }
             }
+            0x14 => {
+                /* Kxx: Key off */
+                if 0 == self.current.effect_parameter as u16 {
+                    self.key_off();
+                }
+            }
             0x15 => {
                 /* Lxx: Set envelope position */
                 match &mut self.instr {
@@ -658,8 +669,6 @@ impl Channel {
 
     // TODO: crate a _real_ verity table
     fn tick0_load_note_and_instrument(&mut self) {
-        let noteu8: u8 = self.current.note.into();
-
         // First, load instr
         if self.current.instrument > 0 {
             if self.current.instrument as usize > self.module.instrument.len() {
@@ -686,6 +695,7 @@ impl Channel {
         }
 
         // Next, choose sample from note
+        let noteu8 = self.current.note.into();
         if note_is_valid(noteu8) {
             match &mut self.instr {
                 Some(i) => {
@@ -717,19 +727,20 @@ impl Channel {
         } else if let Note::KeyOff = self.current.note {
             self.key_off();
         }
-
-        // Volume effect
-        self.tick0_volume_effects();
-
-        // Effects
-        self.tick0_effects(noteu8);
     }
 
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
         if !self.current.has_note_delay() {
-            self.tick0_load_note_and_instrument();
+            /* load note and instrument only if no key off */
+            if self.current.effect_type != 0x14 {
+                self.tick0_load_note_and_instrument();
+            }
+            // Volume effect
+            self.tick0_volume_effects();
+            // Effects
+            self.tick0_effects();
 
             if self.arpeggio.in_progress() && !self.current.has_arpeggio() {
                 self.arpeggio.retrigger();

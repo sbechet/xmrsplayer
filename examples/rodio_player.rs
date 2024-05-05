@@ -40,6 +40,10 @@ struct Cli {
     #[arg(short = 'l', long, default_value = "0")]
     loops: u8,
 
+    /// Force historical fT2 replay (default: autodetect)
+    #[arg(short = 't', long, default_value = "false")]
+    historical: bool,
+
     /// Start at a specific pattern order table position
     #[arg(short = 'p', long, default_value = "0")]
     position: usize,
@@ -78,6 +82,7 @@ fn main() -> Result<(), std::io::Error> {
                                 cli.debug,
                                 cli.ch,
                                 cli.speed,
+                                cli.historical,
                             );
                         }
                         Err(e) => {
@@ -100,6 +105,7 @@ fn main() -> Result<(), std::io::Error> {
                                 cli.debug,
                                 cli.ch,
                                 cli.speed,
+                                false,
                             );
                         }
                         Err(e) => {
@@ -125,12 +131,16 @@ fn rodio_play(
     debug: bool,
     ch: u8,
     speed: u16,
+    historical: bool,
 ) {
     let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
     // try to detect FT2 to play historical bugs
-    let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
+    let is_ft2 = historical || 
+                        module.comment == "FastTracker v2.00 (1.02)" ||
+                        module.comment == "FastTracker v2.00 (1.03)" ||
+                        module.comment == "FastTracker v2.00 (1.04)";
 
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
         Arc::clone(&module),
