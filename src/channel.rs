@@ -99,21 +99,9 @@ impl Channel {
         self.volume = 0.0;
     }
 
-    fn key_off(&mut self, tick: u16) {
+    fn key_off(&mut self) {
         match &mut self.instr {
-            Some(i) => {
-                i.key_off();
-
-                if ! i.has_volume_envelope() {
-                    if tick == 0 && (self.current.instrument != 0 || self.current.volume != 0) {
-                        self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
-                    } else {
-                        self.cut_note();
-                    }
-                } else {
-                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
-                }
-            }
+            Some(i) => i.key_off(),
             None => self.cut_note(),
         }
     }
@@ -281,7 +269,16 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if current_tick == self.current.effect_parameter as u16 {
-                    self.key_off(current_tick);
+                    self.key_off();
+                    if let Some(i) = &mut self.instr {
+                        if ! i.has_volume_envelope() {
+                            self.cut_note();
+                        } else {
+                            self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
+                        }
+                    } else {
+                        self.cut_note();
+                    }
                 }
             }
             0x19 if current_tick != 0 => {
@@ -539,7 +536,16 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if 0 == self.current.effect_parameter as u16 {
-                    self.key_off(0);
+                    self.key_off();
+                    if let Some(i) =  &mut self.instr {
+                        if ! i.has_volume_envelope() && self.current.instrument == 0 && self.current.volume == 0 {
+                            self.cut_note();
+                        } else {
+                            self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
+                        }
+                    } else {
+                        self.cut_note();
+                    }
                 }
             }
             0x15 => {
@@ -734,7 +740,7 @@ impl Channel {
                 None => self.cut_note(),
             }
         } else if let Note::KeyOff = self.current.note {
-            self.key_off(0);
+            self.key_off();
         }
     }
 
