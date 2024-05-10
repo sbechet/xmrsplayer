@@ -172,9 +172,8 @@ impl StateInstrDefault {
     }
 
     pub fn set_note(&mut self, note: Note) -> bool {
-        let noteu8: u8 = note.into();
-        if note_is_valid(noteu8) {
-            let num = self.instr.sample_for_note[noteu8 as usize - 1] as usize;
+        if note.is_valid() {
+            let num = self.instr.sample_for_note[note.value() as usize - 1] as usize;
             return self.select_sample(num);
         } else {
             return false;

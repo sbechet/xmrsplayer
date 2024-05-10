@@ -1,9 +1,4 @@
 #[inline(always)]
-pub fn note_is_valid(n: u8) -> bool {
-    n > 0 && n < 97
-}
-
-#[inline(always)]
 pub fn lerp(u: f32, v: f32, t: f32) -> f32 {
     // t * (v - u) + u
     t.mul_add(v-u, u)

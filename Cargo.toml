@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.5.12"
+version = "0.5.13"
 edition = "2021"
 description = "XMrsPlayer is a safe soundtracker music player"
 authors = ["Sebastien Bechet"]
@@ -14,7 +14,7 @@ keywords = ["xm", "module", "mod", "s3m", "tracker"]
 categories = ["multimedia::audio"]
 
 [dependencies]
-xmrs = { version = "0.5.12" }
+xmrs = { version = "0.5.13" }
 clap = { version = "4.4", optional = true, features = ["cargo", "derive"] }
 rodio =  { version = "0.18", optional = true }
 console =  { version = "0.15", optional = true }

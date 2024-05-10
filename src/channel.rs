@@ -99,10 +99,24 @@ impl Channel {
         self.volume = 0.0;
     }
 
-    fn key_off(&mut self) {
-        match &mut self.instr {
-            Some(i) => i.key_off(),
-            None => self.cut_note(),
+    fn key_off(&mut self, tick: u16) {
+        if let Some(i) =  &mut self.instr {
+            i.key_off();
+            if tick == 0 {
+                if ! i.has_volume_envelope() && self.current.instrument == 0 && self.current.volume == 0 {
+                    self.cut_note();
+                } else {
+                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                }
+            } else {
+                if ! i.has_volume_envelope() {
+                    self.cut_note();
+                } else {
+                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                }
+            }
+        } else {
+            self.cut_note();
         }
     }
 
@@ -269,16 +283,7 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if current_tick == self.current.effect_parameter as u16 {
-                    self.key_off();
-                    if let Some(i) = &mut self.instr {
-                        if ! i.has_volume_envelope() {
-                            self.cut_note();
-                        } else {
-                            self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
-                        }
-                    } else {
-                        self.cut_note();
-                    }
+                    self.key_off(current_tick);
                 }
             }
             0x19 if current_tick != 0 => {
@@ -372,7 +377,6 @@ impl Channel {
     }
 
     fn tick0_effects(&mut self) {
-        let noteu8 = self.current.note.into();
         match self.current.effect_type {
             0x0 => self
                 .arpeggio
@@ -411,7 +415,7 @@ impl Channel {
             }
             0x9 => {
                 /* 9xx: Sample offset */
-                if note_is_valid(noteu8) {
+                if self.current.note.is_valid() {
                     match &mut self.instr {
                         Some(i) => match &mut i.state_sample {
                             Some(s) => {
@@ -471,13 +475,13 @@ impl Channel {
                     }
                     0x5 => {
                         /* E5y: Set finetune */
-                        if note_is_valid(noteu8) {
+                        if self.current.note.is_valid() {
                             match &mut self.instr {
                                 Some(i) => {
                                     let finetune =
                                         (self.current.effect_parameter & 0x0F) as f32 / 8.0
                                             - 1.0;
-                                    self.note = noteu8 as f32 - 1.0 + i.get_finetuned_note(finetune);
+                                    self.note = self.current.note.value() as f32 - 1.0 + i.get_finetuned_note(finetune);
                                     self.period = self.period_helper.note_to_period(self.note);
                                 },
                                 None => {}
@@ -536,16 +540,7 @@ impl Channel {
             0x14 => {
                 /* Kxx: Key off */
                 if 0 == self.current.effect_parameter as u16 {
-                    self.key_off();
-                    if let Some(i) =  &mut self.instr {
-                        if ! i.has_volume_envelope() && self.current.instrument == 0 && self.current.volume == 0 {
-                            self.cut_note();
-                        } else {
-                            self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE | TRIGGER_KEEP_PERIOD);
-                        }
-                    } else {
-                        self.cut_note();
-                    }
+                    self.key_off(0);
                 }
             }
             0x15 => {
@@ -703,27 +698,26 @@ impl Channel {
                     );
                 }
                 self.tick0_change_instr(true);
-            } else {
+            } else if !self.current.note.is_keyoff() {
                 self.tick0_change_instr(false);
             }
         }
     }
 
     fn tick0_load_note(&mut self) {
-        let noteu8 = self.current.note.into();
-        if note_is_valid(noteu8) {
+        if self.current.note.is_valid() {
             match &mut self.instr {
                 Some(i) => {
                     if self.current.has_tone_portamento() {
                         match &i.state_sample {
                             Some(s) if s.is_enabled() => {
-                                self.note = noteu8 as f32 - 1.0 + s.get_finetuned_note(0.0)
+                                self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0)
                             }
                             _ => self.cut_note(),
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
-                            self.orig_note = noteu8 as f32 - 1.0 + s.get_finetuned_note(0.0);
+                            self.orig_note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0);
                             self.note = self.orig_note;
                         }
 
@@ -740,7 +734,11 @@ impl Channel {
                 None => self.cut_note(),
             }
         } else if let Note::KeyOff = self.current.note {
-            self.key_off();
+            if self.current.instrument == 0 {
+                self.key_off(0);
+            } else {
+                self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+            }
         }
     }
 
