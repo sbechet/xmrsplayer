@@ -22,6 +22,7 @@ impl Deref for StateInstrDefault {
 #[derive(Clone)]
 pub struct StateInstrDefault {
     instr: Arc<InstrDefault>,
+    pub num: usize,
     /// Output frequency
     rate: f32,
     period_helper: PeriodHelper,
@@ -47,12 +48,13 @@ pub struct StateInstrDefault {
 }
 
 impl StateInstrDefault {
-    pub fn new(instr: Arc<InstrDefault>, period_helper: PeriodHelper, rate: f32) -> Self {
+    pub fn new(instr: Arc<InstrDefault>, num: usize, period_helper: PeriodHelper, rate: f32) -> Self {
         let v = instr.vibrato.clone();
         let ve = instr.volume_envelope.clone();
         let pe = instr.panning_envelope.clone();
         Self {
             instr,
+            num,
             rate,
             period_helper: period_helper.clone(),
             state_sample: None,

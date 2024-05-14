@@ -652,13 +652,13 @@ impl Channel {
         }
     }
 
-    fn tick0_change_instr(&mut self, sample_only: bool) {
+    /// change instr and return true if it was the same
+    fn tick0_change_instr(&mut self, sample_only: bool) -> bool {
         let instrnr = self.current.instrument as usize - 1;
-
         if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
+            let was_same = if let Some(i) =  &mut self.instr { i.num == instrnr } else { false };
             // only good instr
             if id.sample.len() != 0 {
-
                 if sample_only {
                     match &mut self.instr {
                         Some(i) => i.replace_instr(Arc::clone(id)),
@@ -667,26 +667,33 @@ impl Channel {
                 } else {
                     let instr = StateInstrDefault::new(
                         id.clone(),
+                        instrnr,
                         self.period_helper.clone(),
                         self.rate,
                     );
                     self.instr = Some(instr);
                 }
             }
+            was_same
         } else {
             // TODO
+            false
         }
+
+        
     }
 
-    fn tick0_load_instrument(&mut self) {
+    /// return true if it was the same instrument
+    fn tick0_load_instrument(&mut self) -> bool {
         if self.current.instrument > 0 {
             if self.current.instrument as usize > self.module.instrument.len() {
                 /* Invalid instrument, Cut current note */
                 self.cut_note();
                 self.instr = None;
+                return false;
             } else if self.current.has_tone_portamento() {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
-                self.tick0_change_instr(true);
+                return self.tick0_change_instr(true);
             } else if let Note::None = self.current.note {
                 /* Ghost instrument, trigger note */
                 if self.current.has_volume_slide() {
@@ -697,14 +704,15 @@ impl Channel {
                         TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
                     );
                 }
-                self.tick0_change_instr(true);
+                return self.tick0_change_instr(true);
             } else if !self.current.note.is_keyoff() {
-                self.tick0_change_instr(false);
+                return self.tick0_change_instr(false);
             }
         }
+        return true;
     }
 
-    fn tick0_load_note(&mut self) {
+    fn tick0_load_note(&mut self, new_instr: bool) {
         if self.current.note.is_valid() {
             match &mut self.instr {
                 Some(i) => {
@@ -734,7 +742,7 @@ impl Channel {
                 None => self.cut_note(),
             }
         } else if let Note::KeyOff = self.current.note {
-            if self.current.instrument == 0 {
+            if self.current.instrument == 0 || new_instr {
                 self.key_off(0);
             } else {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
@@ -745,9 +753,9 @@ impl Channel {
     fn tick0_load_instrument_and_note(&mut self) {
         if self.current.effect_type != 0x14 {
             // First, load instr
-            self.tick0_load_instrument();
+            let new_instr: bool = self.tick0_load_instrument();
             // Next, choose sample from note
-            self.tick0_load_note();
+            self.tick0_load_note(new_instr);
         }
     }
 
