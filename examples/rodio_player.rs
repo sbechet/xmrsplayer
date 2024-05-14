@@ -137,15 +137,15 @@ fn rodio_play(
     let sink: Sink = rodio::Sink::try_new(&stream_handle).unwrap();
 
     // try to detect FT2 to play historical bugs
-    let is_ft2 = historical || 
-                        module.comment == "FastTracker v2.00 (1.02)" ||
-                        module.comment == "FastTracker v2.00 (1.03)" ||
-                        module.comment == "FastTracker v2.00 (1.04)";
+    let is_ft2 = historical
+        || module.comment == "FastTracker v2.00 (1.02)"
+        || module.comment == "FastTracker v2.00 (1.03)"
+        || module.comment == "FastTracker v2.00 (1.04)";
 
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
         Arc::clone(&module),
         SAMPLE_RATE as f32,
-        is_ft2
+        is_ft2,
     )));
     {
         let mut player_lock = player.lock().unwrap();

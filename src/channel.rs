@@ -100,19 +100,26 @@ impl Channel {
     }
 
     fn key_off(&mut self, tick: u16) {
-        if let Some(i) =  &mut self.instr {
+        if let Some(i) = &mut self.instr {
             i.key_off();
             if tick == 0 {
-                if ! i.has_volume_envelope() && self.current.instrument == 0 && self.current.volume == 0 {
+                if !i.has_volume_envelope()
+                    && self.current.instrument == 0
+                    && self.current.volume == 0
+                {
                     self.cut_note();
                 } else {
-                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                    self.trigger_note(
+                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
+                    );
                 }
             } else {
-                if ! i.has_volume_envelope() {
+                if !i.has_volume_envelope() {
                     self.cut_note();
                 } else {
-                    self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                    self.trigger_note(
+                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
+                    );
                 }
             }
         } else {
@@ -144,11 +151,7 @@ impl Channel {
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
                     self.period = self.period_helper.note_to_period(self.note);
-                    instr.update_frequency(
-                        self.period,
-                        0.0,
-                        self.vibrato.value(),
-                    );
+                    instr.update_frequency(self.period, 0.0, self.vibrato.value());
                 }
             }
             None => {}
@@ -159,9 +162,9 @@ impl Channel {
         match &mut self.instr {
             Some(instr) => {
                 let panning: f32 = self.panning
-                + (instr.envelope_panning.value - 0.5)
-                    * (0.5 - (self.panning - 0.5).abs())
-                    * 2.0;
+                    + (instr.envelope_panning.value - 0.5)
+                        * (0.5 - (self.panning - 0.5).abs())
+                        * 2.0;
                 let mut volume = 0.0;
 
                 if !self.tremor_on {
@@ -181,12 +184,12 @@ impl Channel {
 
     fn semitone_slide(&mut self) {
         let finetune = match &mut self.instr {
-            Some(instr) => {
-                instr.get_finetune()
-            }
+            Some(instr) => instr.get_finetune(),
             None => 0.0,
         };
-        self.period = self.period_helper.adjust_period_from_note(self.period, 0.0, finetune);
+        self.period = self
+            .period_helper
+            .adjust_period_from_note(self.period, 0.0, finetune);
     }
 
     fn tick_effects(&mut self, current_tick: u16) {
@@ -368,8 +371,8 @@ impl Channel {
                     self.tick_effects(current_tick);
                     self.tickn_update_instr();
                 }
-                return
-            },
+                return;
+            }
         }
         self.tick_volume_effects();
         self.tick_effects(current_tick);
@@ -479,11 +482,11 @@ impl Channel {
                             match &mut self.instr {
                                 Some(i) => {
                                     let finetune =
-                                        (self.current.effect_parameter & 0x0F) as f32 / 8.0
-                                            - 1.0;
-                                    self.note = self.current.note.value() as f32 - 1.0 + i.get_finetuned_note(finetune);
+                                        (self.current.effect_parameter & 0x0F) as f32 / 8.0 - 1.0;
+                                    self.note = self.current.note.value() as f32 - 1.0
+                                        + i.get_finetuned_note(finetune);
                                     self.period = self.period_helper.note_to_period(self.note);
-                                },
+                                }
                                 None => {}
                             }
                         }
@@ -656,7 +659,11 @@ impl Channel {
     fn tick0_change_instr(&mut self, sample_only: bool) -> bool {
         let instrnr = self.current.instrument as usize - 1;
         if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
-            let was_same = if let Some(i) =  &mut self.instr { i.num == instrnr } else { false };
+            let was_same = if let Some(i) = &mut self.instr {
+                i.num == instrnr
+            } else {
+                false
+            };
             // only good instr
             if id.sample.len() != 0 {
                 if sample_only {
@@ -679,8 +686,6 @@ impl Channel {
             // TODO
             false
         }
-
-        
     }
 
     /// return true if it was the same instrument
@@ -719,13 +724,15 @@ impl Channel {
                     if self.current.has_tone_portamento() {
                         match &i.state_sample {
                             Some(s) if s.is_enabled() => {
-                                self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0)
+                                self.note = self.current.note.value() as f32 - 1.0
+                                    + s.get_finetuned_note(0.0)
                             }
                             _ => self.cut_note(),
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
-                            self.orig_note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0);
+                            self.orig_note =
+                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0);
                             self.note = self.orig_note;
                         }
 
@@ -777,9 +784,8 @@ impl Channel {
             if self.vibrato.in_progress() && !self.current.has_vibrato() {
                 self.vibrato.retrigger();
             }
-            
-            self.tickn_update_instr();
 
+            self.tickn_update_instr();
         } else {
             self.note_delay_param = self.current.effect_parameter & 0x0F;
         }

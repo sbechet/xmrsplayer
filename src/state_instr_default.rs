@@ -48,7 +48,12 @@ pub struct StateInstrDefault {
 }
 
 impl StateInstrDefault {
-    pub fn new(instr: Arc<InstrDefault>, num: usize, period_helper: PeriodHelper, rate: f32) -> Self {
+    pub fn new(
+        instr: Arc<InstrDefault>,
+        num: usize,
+        period_helper: PeriodHelper,
+        rate: f32,
+    ) -> Self {
         let v = instr.vibrato.clone();
         let ve = instr.volume_envelope.clone();
         let pe = instr.panning_envelope.clone();
@@ -141,7 +146,6 @@ impl StateInstrDefault {
             self.envelope_panning.tick(self.sustained);
         }
     }
-
 
     /// use sample finetune or force if finetune arg!=0
     pub fn get_finetuned_note(&self, finetune: f32) -> f32 {

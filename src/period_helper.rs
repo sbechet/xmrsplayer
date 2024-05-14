@@ -17,7 +17,7 @@ impl Default for PeriodHelper {
 
 impl PeriodHelper {
     pub fn new(freq_type: FrequencyType, historical: bool) -> Self {
-        Self { 
+        Self {
             freq_type,
             historical,
         }
@@ -57,7 +57,7 @@ impl PeriodHelper {
     fn amiga_period(note: f32) -> f32 {
         /* found using scipy.optimize.curve_fit */
         6848.0 * (-0.0578 * note).exp() + 0.2782
-    } 
+    }
 
     /// return frequency
     fn amiga_frequency(period: f32) -> f32 {
@@ -97,7 +97,9 @@ impl PeriodHelper {
                 }
                 FrequencyType::AmigaFrequencies => {
                     let note = Self::amiga_note(period);
-                    Self::amiga_frequency(Self::amiga_period(note + arp_note) + 16.0 * period_offset)
+                    Self::amiga_frequency(
+                        Self::amiga_period(note + arp_note) + 16.0 * period_offset,
+                    )
                 }
             }
         } else {
@@ -133,7 +135,8 @@ impl PeriodHelper {
             }
         }
 
-        let tmp_period = (lo_period as f32 / 16.0) + ((fine_tune - 16) as f32 / 16.0) + (arp_note as f32);
+        let tmp_period =
+            (lo_period as f32 / 16.0) + ((fine_tune - 16) as f32 / 16.0) + (arp_note as f32);
         self.note_to_period(tmp_period).max(1540.0)
     }
 
@@ -155,5 +158,4 @@ impl PeriodHelper {
             self.adjust_period_from_note_new(period, arp_note, finetune)
         }
     }
-
 }
