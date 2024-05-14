@@ -391,7 +391,7 @@ impl XmrsPlayer {
             }
         }
 
-        let fgvol = self.global_volume * self.amplification;
+        let fgvol = (self.global_volume * self.amplification) / (self.global_volume + self.amplification);
         left *= fgvol;
         right *= fgvol;
 

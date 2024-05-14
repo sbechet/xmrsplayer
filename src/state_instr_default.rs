@@ -129,7 +129,7 @@ impl StateInstrDefault {
     }
 
     pub fn get_volume(&self) -> f32 {
-        self.volume_fadeout * self.envelope_volume.value * self.volume
+        (self.volume_fadeout * self.envelope_volume.value * self.volume) / (self.volume_fadeout + self.envelope_volume.value + self.volume)
     }
 
     fn envelopes(&mut self) {
