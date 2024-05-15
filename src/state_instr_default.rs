@@ -50,6 +50,7 @@ pub struct StateInstrDefault {
 impl StateInstrDefault {
     pub fn new(
         instr: Arc<InstrDefault>,
+        historical: bool,
         num: usize,
         period_helper: PeriodHelper,
         rate: f32,
@@ -64,8 +65,8 @@ impl StateInstrDefault {
             period_helper: period_helper.clone(),
             state_sample: None,
             state_vibrato: StateAutoVibrato::new(v, period_helper),
-            envelope_volume: StateEnvelope::new(ve, 1.0),
-            envelope_panning: StateEnvelope::new(pe, 0.5),
+            envelope_volume: StateEnvelope::new(ve, 1.0, historical),
+            envelope_panning: StateEnvelope::new(pe, 0.5, historical),
             sustained: true,
             volume_fadeout: 1.0,
             volume: 1.0,

@@ -680,6 +680,7 @@ impl Channel {
                 } else {
                     let instr = StateInstrDefault::new(
                         id.clone(),
+                        self.historical,
                         instrnr,
                         self.period_helper.clone(),
                         self.rate,

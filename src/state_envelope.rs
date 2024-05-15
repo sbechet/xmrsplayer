@@ -1,9 +1,11 @@
+use crate::helper::*;
 /// An Instrument Envelope State
 use std::sync::Arc;
 use xmrs::prelude::*;
 
 #[derive(Clone)]
 pub struct StateEnvelope {
+    historical: bool,
     env: Arc<Envelope>,
     default_value: f32,
     pub value: f32,
@@ -12,9 +14,10 @@ pub struct StateEnvelope {
 
 impl StateEnvelope {
     // value is volume_envelope_volume=1.0 or volume_envelope_panning=0.5
-    pub fn new(env: Arc<Envelope>, default_value: f32) -> Self {
+    pub fn new(env: Arc<Envelope>, default_value: f32, historical: bool) -> Self {
         Self {
-            env: env,
+            historical,
+            env,
             default_value,
             value: default_value,
             counter: 0,
@@ -32,12 +35,11 @@ impl StateEnvelope {
 
     pub fn tick(&mut self, sustained: bool) -> f32 {
         let num_points = self.env.point.len();
-
         match num_points {
             0 => self.value = 0.0,
             1 => {
-                let outval = self.env.point[0].value as f32 / 64.0;
-                self.value = if outval > 1.0 { 1.0 } else { outval };
+                self.value = self.env.point[0].value as f32 / 64.0;
+                clamp_up(&mut self.value);
             }
             _ => {
                 if self.env.loop_enabled {
@@ -45,12 +47,17 @@ impl StateEnvelope {
                     let loop_end: u16 = self.env.point[self.env.loop_end_point as usize].frame;
                     let loop_length: u16 = loop_end - loop_start;
 
-                    if self.counter >= loop_end {
-                        self.counter -= loop_length;
+                    if self.historical {
+                        if self.counter >= loop_end - 1 {
+                            self.counter -= loop_length - 1;
+                        }
+                    } else {
+                        if self.counter >= loop_end {
+                            self.counter -= loop_length;
+                        }
                     }
                 }
 
-                // TODO: cleanup when loading
                 let mut j: usize = 0;
                 while j < (self.env.point.len() - 2) {
                     if self.env.point[j].frame <= self.counter
