@@ -17,6 +17,7 @@ use xmrs::prelude::*;
 #[derive(Clone, Default)]
 pub struct Channel {
     module: Arc<Module>,
+    historical: bool,
     period_helper: PeriodHelper,
     rate: f32,
 
@@ -72,6 +73,7 @@ impl Channel {
         let period_helper = PeriodHelper::new(module.frequency_type, historical);
         Self {
             module,
+            historical,
             period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
@@ -102,24 +104,28 @@ impl Channel {
     fn key_off(&mut self, tick: u16) {
         if let Some(i) = &mut self.instr {
             i.key_off();
-            if tick == 0 {
-                if !i.has_volume_envelope()
-                    && self.current.instrument == 0
-                    && self.current.volume == 0
+
+            if self.historical {
+                // openmpt `key_off.xm`: Key off at tick 0 (K00) is very dodgy command. If there is a note next to it, the note is ignored. If there is a volume column command or instrument next to it and the current instrument has no volume envelope, the note is faded out instead of being cut.
+                if (tick == 0
+                    && (i.has_volume_envelope()
+                        || self.current.instrument != 0
+                        || self.current.volume != 0))
+                    || (tick != 0 && i.has_volume_envelope())
                 {
-                    self.cut_note();
-                } else {
                     self.trigger_note(
                         TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
                     );
+                } else {
+                    self.cut_note();
                 }
             } else {
-                if !i.has_volume_envelope() {
-                    self.cut_note();
-                } else {
+                if i.has_volume_envelope() {
                     self.trigger_note(
                         TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
                     );
+                } else {
+                    self.cut_note();
                 }
             }
         } else {
@@ -758,19 +764,22 @@ impl Channel {
     }
 
     fn tick0_load_instrument_and_note(&mut self) {
-        if self.current.effect_type != 0x14 {
-            // First, load instr
-            let new_instr: bool = self.tick0_load_instrument();
-            // Next, choose sample from note
-            self.tick0_load_note(new_instr);
+        if self.historical && self.current.effect_type == 0x14 {
+            // Historical Kxy effect bug
+            return;
         }
+
+        // First, load instr
+        let new_instr: bool = self.tick0_load_instrument();
+        // Next, choose sample from note
+        self.tick0_load_note(new_instr);
     }
 
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
         if !self.current.has_note_delay() {
-            /* load instrument then note only if no key off */
+            /* load instrument then note */
             self.tick0_load_instrument_and_note();
             // Volume effect
             self.tick0_volume_effects();
