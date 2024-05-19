@@ -14,6 +14,7 @@ impl HistoricalHelper {
         self.tempo = tempo;
     }
 
+    /// Arpeggio
     pub fn arpeggio_tick(&self, tick: u8) -> u8 {
         let tick = tick as u16 % self.tempo;
         let reverse_tick = (self.tempo - tick - 1) as u8;
@@ -26,4 +27,19 @@ impl HistoricalHelper {
             _ => 2,
         }
     }
+
+    /// Multi Retrig Note
+    pub fn value_historical_computers(&self, vol: f32, note_retrig_vol: f32) -> f32 {
+        match (16.0 * note_retrig_vol) as u8 {
+            0 | 8 => vol,
+            rv @ (1 | 2 | 3 | 4 | 5) => vol - ((1 << rv) - 1) as f32,
+            6 => vol * 2.0 / 3.0,
+            7 => vol / 2.0,
+            rv @ (9 | 10 | 11 | 12 | 13) => vol + ((1 << rv) - 9) as f32,
+            14 => vol * 3.0 / 2.0,
+            15 => vol * 2.0,
+            _ => 0.0,
+        }
+    }
+
 }

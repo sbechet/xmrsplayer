@@ -84,11 +84,11 @@ impl Channel {
             rate,
             volume: 1.0,
             panning: 0.5,
-            arpeggio: EffectArpeggio::new(historical2),
+            arpeggio: EffectArpeggio::new(historical2.clone()),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
-            multi_retrig_note: EffectMultiRetrigNote::new(historical, 0.0, 0.0),
+            multi_retrig_note: EffectMultiRetrigNote::new(historical2, 0.0, 0.0),
             ..Default::default()
         }
     }
