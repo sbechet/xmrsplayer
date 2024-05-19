@@ -13,6 +13,7 @@ pub mod effect_volume_panning_slide;
 
 pub mod channel;
 pub mod helper;
+pub mod historical_helper;
 pub mod period_helper;
 pub mod prelude;
 pub mod state_auto_vibrato;

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;
@@ -7,6 +7,7 @@ use crate::effect_portamento::EffectPortamento;
 use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 use crate::effect_volume_panning_slide::EffectVolumePanningSlide;
+use crate::historical_helper::HistoricalHelper;
 use crate::period_helper::PeriodHelper;
 use crate::triggerkeep::*;
 
@@ -69,7 +70,12 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(module: Arc<Module>, rate: f32, historical: bool) -> Self {
+    pub fn new(
+        module: Arc<Module>,
+        rate: f32,
+        historical: bool,
+        historical2: Option<Arc<Mutex<HistoricalHelper>>>,
+    ) -> Self {
         let period_helper = PeriodHelper::new(module.frequency_type, historical);
         Self {
             module,
@@ -78,7 +84,7 @@ impl Channel {
             rate,
             volume: 1.0,
             panning: 0.5,
-            arpeggio: EffectArpeggio::new(historical),
+            arpeggio: EffectArpeggio::new(historical2),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),

@@ -1,5 +1,7 @@
 use crate::effect::{EffectPlugin, EffectXM2EffectPlugin};
+use crate::historical_helper::HistoricalHelper;
 use core::default::Default;
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 pub struct Arpeggio {
@@ -10,36 +12,16 @@ pub struct Arpeggio {
 #[derive(Clone, Default)]
 pub struct EffectArpeggio {
     data: Arpeggio,
-    historical: bool,
+    historical: Option<Arc<Mutex<HistoricalHelper>>>,
     tick: u8,
     in_progress: bool,
 }
 
 impl EffectArpeggio {
-    pub fn new(historicalft2: bool) -> Self {
+    pub fn new(historical: Option<Arc<Mutex<HistoricalHelper>>>) -> Self {
         Self {
-            historical: historicalft2,
+            historical,
             ..Default::default()
-        }
-    }
-
-    pub fn historical(&self) -> bool {
-        self.historical
-    }
-
-    pub fn get_current_tick(&self) -> u8 {
-        self.tick
-    }
-
-    // No way to accept that bug today!
-    fn historical_ft2_tick(&self) -> u8 {
-        match self.tick {
-            0..=15 => self.tick % 3,
-            51 | 54 | 60 | 63 | 72 | 78 | 81 | 93 | 99 | 105 | 108 | 111 | 114 | 117 | 120
-            | 123 | 126 | 129 | 132 | 135 | 138 | 141 | 144 | 147 | 150 | 153 | 156 | 159 | 165
-            | 168 | 171 | 174 | 177 | 180 | 183 | 186 | 189 | 192 | 195 | 198 | 201 | 204 | 207
-            | 210 | 216 | 219 | 222 | 225 | 228 | 231 | 234 | 237 | 240 | 243 => 0,
-            _ => 2,
         }
     }
 }
@@ -72,18 +54,17 @@ impl EffectPlugin for EffectArpeggio {
     }
 
     fn value(&self) -> f32 {
-        if self.historical {
-            match self.historical_ft2_tick() {
+        match &self.historical {
+            Some(historical) => match historical.lock().unwrap().arpeggio_tick(self.tick) {
                 1 => self.data.offset1,
                 2 => self.data.offset2,
                 _ => 0.0,
-            }
-        } else {
-            match self.tick % 3 {
+            },
+            None => match self.tick % 3 {
                 1 => self.data.offset1,
                 2 => self.data.offset2,
                 _ => 0.0,
-            }
+            },
         }
     }
 }
