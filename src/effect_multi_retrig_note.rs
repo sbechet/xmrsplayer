@@ -71,7 +71,10 @@ impl EffectPlugin for EffectMultiRetrigNote {
             vol
         } else {
             let mut v = match &self.historical {
-                Some(hhelper) => hhelper.lock().unwrap().value_historical_computers(vol, self.data.note_retrig_vol),
+                Some(hhelper) => hhelper
+                    .lock()
+                    .unwrap()
+                    .value_historical_computers(vol, self.data.note_retrig_vol),
                 None => self.data.value_new_computers(vol),
             };
             clamp(&mut v);

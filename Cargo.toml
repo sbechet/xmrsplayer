@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.5.15"
+version = "0.5.16"
 edition = "2021"
 description = "XMrsPlayer is a safe soundtracker music player"
 authors = ["Sebastien Bechet"]

@@ -102,38 +102,40 @@ impl Channel {
         self.muted || midi_mute
     }
 
-    fn cut_note(&mut self) {
+    pub fn cut_note(&mut self) {
         /* NB: this is not the same as Key Off */
         self.volume = 0.0;
     }
 
-    fn key_off(&mut self, tick: u16) {
+    fn key_off_historical(&mut self, tick: u16) {
         if let Some(i) = &mut self.instr {
             i.key_off();
-
-            if self.historical {
-                // openmpt `key_off.xm`: Key off at tick 0 (K00) is very dodgy command. If there is a note next to it, the note is ignored. If there is a volume column command or instrument next to it and the current instrument has no volume envelope, the note is faded out instead of being cut.
-                if (tick == 0
-                    && (i.has_volume_envelope()
-                        || self.current.instrument != 0
-                        || self.current.volume != 0))
-                    || (tick != 0 && i.has_volume_envelope())
-                {
-                    self.trigger_note(
-                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
-                    );
-                } else {
-                    self.cut_note();
-                }
+           // openmpt `key_off.xm`: Key off at tick 0 (K00) is very dodgy command. If there is a note next to it, the note is ignored. If there is a volume column command or instrument next to it and the current instrument has no volume envelope, the note is faded out instead of being cut.
+            if (tick == 0
+                && (i.has_volume_envelope()
+                    || self.current.instrument != 0
+                    || self.current.volume != 0))
+                || (tick != 0 && i.has_volume_envelope())
+            {
+                self.trigger_note(
+                    TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
+                );
             } else {
-                if i.has_volume_envelope() {
-                    self.trigger_note(
-                        TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
-                    );
-                } else {
-                    self.cut_note();
-                }
+                self.cut_note();
             }
+        } else {
+            self.cut_note();
+        }
+    }
+
+    fn key_off(&mut self, tick: u16) {
+        if self.historical {
+            self.key_off_historical(tick);
+            return;
+        }
+
+        if let Some(i) = &mut self.instr {
+            i.key_off();
         } else {
             self.cut_note();
         }

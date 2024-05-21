@@ -1,4 +1,4 @@
-/// Here we concentrate all old bugs
+/// Here we concentrate some old bugs
 
 #[derive(Default)]
 pub struct HistoricalHelper {
@@ -41,5 +41,4 @@ impl HistoricalHelper {
             _ => 0.0,
         }
     }
-
 }
