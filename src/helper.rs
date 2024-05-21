@@ -1,3 +1,6 @@
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 #[inline(always)]
 pub fn lerp(u: f32, v: f32, t: f32) -> f32 {
     // t * (v - u) + u

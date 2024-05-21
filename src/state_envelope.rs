@@ -1,6 +1,9 @@
 use crate::helper::*;
 /// An Instrument Envelope State
+#[cfg(feature = "std")]
 use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
 use xmrs::prelude::*;
 
 #[derive(Clone)]

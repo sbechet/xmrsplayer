@@ -1,4 +1,9 @@
+#[cfg(feature = "std")]
 use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
 
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;

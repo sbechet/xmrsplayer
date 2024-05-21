@@ -1,5 +1,8 @@
 use xmrs::prelude::FrequencyType;
 
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 #[derive(Clone)]
 pub struct PeriodHelper {
     pub freq_type: FrequencyType,

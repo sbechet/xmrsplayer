@@ -4,8 +4,15 @@ use crate::{
     state_auto_vibrato::StateAutoVibrato, state_envelope::StateEnvelope, state_sample::StateSample,
 };
 /// An InstrDefault State
+
+#[cfg(feature = "std")]
 use std::ops::Deref;
+#[cfg(not(feature = "std"))]
+use core::ops::Deref;
+#[cfg(feature = "std")]
 use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
 use xmrs::prelude::*;
 
 impl Deref for StateInstrDefault {

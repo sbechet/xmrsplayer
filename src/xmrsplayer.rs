@@ -1,7 +1,12 @@
 use crate::channel::Channel;
 use crate::helper::*;
 use crate::triggerkeep::*;
+#[cfg(feature = "std")]
 use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 use xmrs::prelude::*;
 
 pub struct XmrsPlayer {
@@ -160,6 +165,8 @@ impl XmrsPlayer {
         if self.current_table_index as usize >= self.module.pattern_order.len() {
             self.current_table_index = self.module.restart_position;
         }
+
+        #[cfg(feature = "std")]
         if self.debug {
             println!(
                 "pattern_order[0x{:02x}] = 0x{:02x}",
@@ -278,11 +285,13 @@ impl XmrsPlayer {
         let mut in_a_loop = false;
 
         let current_row = self.current_row as usize;
+        #[cfg(feature = "std")]
         if self.debug {
             print!("{:02X} ", current_row);
         }
         for ch_index in 0..num_channels {
             let ps = &self.module.pattern[pat_idx][current_row][ch_index];
+            #[cfg(feature = "std")]
             if self.debug {
                 print!("{:?}", ps);
             }
@@ -292,6 +301,7 @@ impl XmrsPlayer {
                 in_a_loop = true;
             }
         }
+        #[cfg(feature = "std")]
         if self.debug {
             println!();
         }

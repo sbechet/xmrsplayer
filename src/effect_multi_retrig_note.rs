@@ -2,6 +2,13 @@ use crate::effect::*;
 use crate::helper::*;
 use core::default::Default;
 
+#[cfg(feature = "std")]
+use std::f32;
+#[cfg(not(feature = "std"))]
+use core::f32;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 #[derive(Clone, Default)]
 pub struct MultiRetrigNote {
     note_retrig_speed: f32,
@@ -25,10 +32,10 @@ impl MultiRetrigNote {
 
     fn value_new_computers(&self, vol: f32) -> f32 {
         vol * if self.note_retrig_vol <= 0.5 {
-            std::f32::consts::FRAC_PI_2
-                + self.note_retrig_vol * (f32::asin(0.5) - std::f32::consts::FRAC_PI_2)
+            f32::consts::FRAC_PI_2
+                + self.note_retrig_vol * (f32::asin(0.5) - f32::consts::FRAC_PI_2)
         } else {
-            std::f32::consts::PI * (1.0 + self.note_retrig_vol)
+            f32::consts::PI * (1.0 + self.note_retrig_vol)
         }
     }
 }

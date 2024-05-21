@@ -1,5 +1,12 @@
 use xmrs::module::FrequencyType;
 
+#[cfg(feature = "std")]
+use std::f32;
+#[cfg(not(feature = "std"))]
+use core::f32;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 use crate::effect::*;
 use crate::period_helper::PeriodHelper;
 
@@ -23,7 +30,7 @@ impl VibratoTremolo {
     fn waveform(&self, pos: f32) -> f32 {
         let value = self.depth
             * match self.waveform {
-                0 => -(std::f32::consts::TAU * pos).sin(),
+                0 => -(f32::consts::TAU * pos).sin(),
                 1 => {
                     // triangle, but ramp down reality
                     if pos < 0.5 {

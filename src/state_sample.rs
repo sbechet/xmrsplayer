@@ -1,8 +1,14 @@
 use crate::helper::*;
 use crate::period_helper::PeriodHelper;
 /// A Sample State
+#[cfg(feature = "std")]
 use std::ops::Deref;
+#[cfg(not(feature = "std"))]
+use core::ops::Deref;
+#[cfg(feature = "std")]
 use std::sync::Arc;
+#[cfg(not(feature = "std"))]
+use alloc::sync::Arc;
 use xmrs::prelude::*;
 use xmrs::sample::Sample;
 
