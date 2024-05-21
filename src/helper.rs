@@ -1,3 +1,5 @@
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 

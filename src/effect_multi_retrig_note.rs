@@ -6,6 +6,8 @@ use core::default::Default;
 use std::f32;
 #[cfg(not(feature = "std"))]
 use core::f32;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 

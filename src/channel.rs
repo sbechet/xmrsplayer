@@ -2,6 +2,8 @@
 use std::sync::Arc;
 #[cfg(not(feature = "std"))]
 use alloc::sync::Arc;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
 

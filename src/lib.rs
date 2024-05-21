@@ -5,8 +5,8 @@
 #[macro_use]
 extern crate alloc;
 
-#[cfg(not(any(feature = "std", feature = "micromath")))]
-::core::compile_error!("Must enable at least one of features `std` or `micromath`");
+#[cfg(not(any(feature = "std", feature = "libm", feature = "micromath")))]
+::core::compile_error!("Must enable at least one of features `std`, `libm`, or `micromath`");
 
 pub mod effect;
 pub mod triggerkeep;
