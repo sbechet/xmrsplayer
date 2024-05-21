@@ -267,7 +267,7 @@ impl Channel {
                         /* E9y: Retrigger note */
                         if self.current.effect_parameter & 0x0F != 0 {
                             let r = current_tick % (self.current.effect_parameter as u16 & 0x0F);
-                            if r != 0 {
+                            if r == 0 {
                                 self.trigger_note(TRIGGER_KEEP_VOLUME);
                                 match &mut self.instr {
                                     Some(instr) => {
@@ -510,6 +510,18 @@ impl Channel {
                         self.tremolo.data.waveform = self.current.effect_parameter & 3;
                         if ((self.current.effect_parameter >> 2) & 1) == 0 {
                             self.tremolo.retrigger();
+                        }
+                    }
+                    0x9 => {
+                        /* E90: Retrigger note */
+                        if self.current.effect_parameter & 0x0F == 0 {
+                            self.trigger_note(TRIGGER_KEEP_VOLUME);
+                            match &mut self.instr {
+                                Some(instr) => {
+                                    instr.tick();
+                                }
+                                None => {}
+                            }
                         }
                     }
                     0xA => {
