@@ -61,16 +61,20 @@ impl StateEnvelope {
                 let mut j: usize = 0;
                 while j < (self.env.point.len() - 2) {
                     if self.env.point[j].frame <= self.counter
-                        && self.env.point[j + 1].frame >= self.counter
+                        && self.env.point[j + 1].frame > self.counter
                     {
                         break;
                     }
                     j += 1;
                 }
 
-                self.value =
+                self.value = if j >= (self.env.point.len() - 2) {
+                    // frame not found
+                    1.0
+                } else {
                     EnvelopePoint::lerp(&self.env.point[j], &self.env.point[j + 1], self.counter)
-                        / 64.0;
+                        / 64.0
+                };                
 
                 /* Make sure it is safe to increment frame count */
                 self.counter = if !sustained
