@@ -56,15 +56,13 @@ impl StateEnvelope {
                         break;
                     }
 
-                    if self.counter < self.env.point[i].frame {
-                        if self.env.point[i - 1].frame != self.counter {
-                            self.value = EnvelopePoint::lerp(
-                                &self.env.point[i - 1],
-                                &self.env.point[i],
-                                self.counter,
-                            ) / 64.0;
-                            break;
-                        }
+                    if self.counter <= self.env.point[i].frame {
+                        self.value = EnvelopePoint::lerp(
+                            &self.env.point[i - 1],
+                            &self.env.point[i],
+                            self.counter,
+                        ) / 64.0;
+                        break;
                     }
 
                     if self.env.point[i - 1].frame >= self.env.point[i].frame {
