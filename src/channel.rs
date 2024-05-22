@@ -110,7 +110,7 @@ impl Channel {
     fn key_off_historical(&mut self, tick: u16) {
         if let Some(i) = &mut self.instr {
             i.key_off();
-           // openmpt `key_off.xm`: Key off at tick 0 (K00) is very dodgy command. If there is a note next to it, the note is ignored. If there is a volume column command or instrument next to it and the current instrument has no volume envelope, the note is faded out instead of being cut.
+            // openmpt `key_off.xm`: Key off at tick 0 (K00) is very dodgy command. If there is a note next to it, the note is ignored. If there is a volume column command or instrument next to it and the current instrument has no volume envelope, the note is faded out instead of being cut.
             if (tick == 0
                 && (i.has_volume_envelope()
                     || self.current.instrument != 0
@@ -700,7 +700,6 @@ impl Channel {
                 } else {
                     let instr = StateInstrDefault::new(
                         id.clone(),
-                        self.historical,
                         instrnr,
                         self.period_helper.clone(),
                         self.rate,

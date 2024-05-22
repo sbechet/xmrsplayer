@@ -5,7 +5,6 @@ use xmrs::prelude::*;
 
 #[derive(Clone)]
 pub struct StateEnvelope {
-    historical: bool,
     env: Arc<Envelope>,
     default_value: f32,
     pub value: f32,
@@ -14,9 +13,8 @@ pub struct StateEnvelope {
 
 impl StateEnvelope {
     // value is volume_envelope_volume=1.0 or volume_envelope_panning=0.5
-    pub fn new(env: Arc<Envelope>, default_value: f32, historical: bool) -> Self {
+    pub fn new(env: Arc<Envelope>, default_value: f32) -> Self {
         Self {
-            historical,
             env,
             default_value,
             value: default_value,
@@ -47,34 +45,33 @@ impl StateEnvelope {
                     let loop_end: u16 = self.env.point[self.env.loop_end_point as usize].frame;
                     let loop_length: u16 = loop_end - loop_start;
 
-                    if self.historical {
-                        if self.counter >= loop_end - 1 {
-                            self.counter -= loop_length - 1;
-                        }
-                    } else {
-                        if self.counter >= loop_end {
-                            self.counter -= loop_length;
-                        }
+                    if self.counter >= loop_end {
+                        self.counter -= loop_length;
                     }
                 }
 
-                let mut j: usize = 0;
-                while j < (self.env.point.len() - 2) {
-                    if self.env.point[j].frame <= self.counter
-                        && self.env.point[j + 1].frame > self.counter
-                    {
+                for i in 1..self.env.point.len() {
+                    if self.counter == self.env.point[i - 1].frame {
+                        self.value = self.env.point[i - 1].value as f32 / 64.0;
                         break;
                     }
-                    j += 1;
-                }
 
-                self.value = if j >= (self.env.point.len() - 2) {
-                    // frame not found
-                    1.0
-                } else {
-                    EnvelopePoint::lerp(&self.env.point[j], &self.env.point[j + 1], self.counter)
-                        / 64.0
-                };                
+                    if self.counter < self.env.point[i].frame {
+                        if self.env.point[i - 1].frame != self.counter {
+                            self.value = EnvelopePoint::lerp(
+                                &self.env.point[i - 1],
+                                &self.env.point[i],
+                                self.counter,
+                            ) / 64.0;
+                            break;
+                        }
+                    }
+
+                    if self.env.point[i - 1].frame >= self.env.point[i].frame {
+                        self.value = self.env.point[i - 1].value as f32 / 64.0;
+                        break;
+                    }
+                }
 
                 /* Make sure it is safe to increment frame count */
                 self.counter = if !sustained
