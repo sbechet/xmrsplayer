@@ -1,22 +1,25 @@
 use xmrs::prelude::FrequencyType;
+use std::sync::{Arc, Mutex};
+use crate::historical_helper::HistoricalHelper;
+
 
 #[derive(Clone)]
 pub struct PeriodHelper {
     pub freq_type: FrequencyType,
-    historical: bool,
+    historical: Option<Arc<Mutex<HistoricalHelper>>>,
 }
 
 impl Default for PeriodHelper {
     fn default() -> Self {
         Self {
             freq_type: FrequencyType::LinearFrequencies,
-            historical: false,
+            historical: None,
         }
     }
 }
 
 impl PeriodHelper {
-    pub fn new(freq_type: FrequencyType, historical: bool) -> Self {
+    pub fn new(freq_type: FrequencyType, historical: Option<Arc<Mutex<HistoricalHelper>>>) -> Self {
         Self {
             freq_type,
             historical,
@@ -111,35 +114,6 @@ impl PeriodHelper {
         }
     }
 
-    // Parts from ft2-clone - Copyright (c) 2016-2024, Olav Sørensen - BSD-3-Clause license
-    // no way to accept these bugs today!
-    fn adjust_period_from_note_historical(&self, period: u16, arp_note: u16, finetune: i16) -> f32 {
-        let fine_tune: i16 = (finetune / 8 + 16) as i16;
-
-        // FT2 bug, should've been 10*12*16. Notes above B-7 (95) will have issues.
-        // You can only achieve such high notes by having a high relative note setting.
-        let mut hi_period: i16 = 8 * 12 * 16;
-        let mut lo_period: i16 = 0;
-
-        for _i in 0..8 {
-            let tmp_period = (((lo_period + hi_period) >> 1) as u16 & 0xFFF0) as i16 + fine_tune;
-            let mut look_up = tmp_period as i32 - 8;
-            if look_up < 0 {
-                look_up = 0; // safety fix (C-0 w/ f.tune <= -65). This seems to result in 0 in FT2 (TODO: verify)
-            }
-
-            if period >= self.note_to_period(look_up as f32 / 16.0 - 1.0).round() as u16 {
-                hi_period = ((tmp_period - fine_tune) as u16 & 0xFFF0) as i16;
-            } else {
-                lo_period = ((tmp_period - fine_tune) as u16 & 0xFFF0) as i16;
-            }
-        }
-
-        let tmp_period =
-            (lo_period as f32 / 16.0) + ((fine_tune - 16) as f32 / 16.0) + (arp_note as f32);
-        self.note_to_period(tmp_period).max(1540.0)
-    }
-
     /*
         without historical bug
         finetune : [-1.0..1.0[
@@ -151,11 +125,14 @@ impl PeriodHelper {
 
     /// adjust period to nearest semitones
     pub fn adjust_period_from_note(&self, period: f32, arp_note: f32, finetune: f32) -> f32 {
-        if self.historical {
-            let finetune = (finetune * 127.0) as i16;
-            self.adjust_period_from_note_historical(period as u16, arp_note as u16, finetune)
-        } else {
-            self.adjust_period_from_note_new(period, arp_note, finetune)
+        match &self.historical {
+            Some(_hhelper) => {
+                let finetune = (finetune * 127.0) as i16;
+                HistoricalHelper::adjust_period_from_note_historical(&self, period as u16, arp_note as u16, finetune)
+            },
+            None => {
+                self.adjust_period_from_note_new(period, arp_note, finetune)
+            }
         }
     }
 }

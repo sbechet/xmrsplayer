@@ -1,4 +1,5 @@
 /// Here we concentrate some old bugs
+use crate::period_helper::PeriodHelper;
 
 #[derive(Default)]
 pub struct HistoricalHelper {
@@ -29,7 +30,7 @@ impl HistoricalHelper {
     }
 
     /// Multi Retrig Note
-    pub fn value_historical_computers(&self, vol: f32, note_retrig_vol: f32) -> f32 {
+    pub fn value_historical_computers(vol: f32, note_retrig_vol: f32) -> f32 {
         match (16.0 * note_retrig_vol) as u8 {
             0 | 8 => vol,
             rv @ (1 | 2 | 3 | 4 | 5) => vol - ((1 << rv) - 1) as f32,
@@ -41,4 +42,34 @@ impl HistoricalHelper {
             _ => 0.0,
         }
     }
+
+    // Parts from ft2-clone - Copyright (c) 2016-2024, Olav Sørensen - BSD-3-Clause license
+    // no way to accept these bugs today!
+    pub fn adjust_period_from_note_historical(phelper: &PeriodHelper, period: u16, arp_note: u16, finetune: i16) -> f32 {
+        let fine_tune: i16 = (finetune / 8 + 16) as i16;
+
+        // FT2 bug, should've been 10*12*16. Notes above B-7 (95) will have issues.
+        // You can only achieve such high notes by having a high relative note setting.
+        let mut hi_period: i16 = 8 * 12 * 16;
+        let mut lo_period: i16 = 0;
+
+        for _i in 0..8 {
+            let tmp_period = (((lo_period + hi_period) >> 1) as u16 & 0xFFF0) as i16 + fine_tune;
+            let mut look_up = tmp_period as i32 - 8;
+            if look_up < 0 {
+                look_up = 0; // safety fix (C-0 w/ f.tune <= -65). This seems to result in 0 in FT2 (TODO: verify)
+            }
+
+            if period >= phelper.note_to_period(look_up as f32 / 16.0 - 1.0).round() as u16 {
+                hi_period = ((tmp_period - fine_tune) as u16 & 0xFFF0) as i16;
+            } else {
+                lo_period = ((tmp_period - fine_tune) as u16 & 0xFFF0) as i16;
+            }
+        }
+
+        let tmp_period =
+            (lo_period as f32 / 16.0) + ((fine_tune - 16) as f32 / 16.0) + (arp_note as f32);
+        phelper.note_to_period(tmp_period).max(1540.0)
+    }
+
 }

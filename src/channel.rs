@@ -18,7 +18,7 @@ use xmrs::prelude::*;
 #[derive(Clone, Default)]
 pub struct Channel {
     module: Arc<Module>,
-    historical: bool,
+    historical: Option<Arc<Mutex<HistoricalHelper>>>,
     period_helper: PeriodHelper,
     rate: f32,
 
@@ -73,22 +73,20 @@ impl Channel {
     pub fn new(
         module: Arc<Module>,
         rate: f32,
-        historical: bool,
-        historical2: Option<Arc<Mutex<HistoricalHelper>>>,
+        historical: Option<Arc<Mutex<HistoricalHelper>>>,
     ) -> Self {
-        let period_helper = PeriodHelper::new(module.frequency_type, historical);
+        let period_helper = PeriodHelper::new(module.frequency_type, historical.clone());
         Self {
             module,
-            historical,
             period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
             panning: 0.5,
-            arpeggio: EffectArpeggio::new(historical2.clone()),
+            arpeggio: EffectArpeggio::new(historical.clone()),
             tone_portamento: EffectTonePortamento::new(period_helper.clone()),
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
-            multi_retrig_note: EffectMultiRetrigNote::new(historical2, 0.0, 0.0),
+            multi_retrig_note: EffectMultiRetrigNote::new(historical, 0.0, 0.0),
             ..Default::default()
         }
     }
@@ -129,7 +127,7 @@ impl Channel {
     }
 
     fn key_off(&mut self, tick: u16) {
-        if self.historical {
+        if let Some(_hhelper) = &self.historical {
             self.key_off_historical(tick);
             return;
         }
@@ -785,9 +783,11 @@ impl Channel {
     }
 
     fn tick0_load_instrument_and_note(&mut self) {
-        if self.historical && self.current.effect_type == 0x14 {
-            // Historical Kxy effect bug
-            return;
+        if let Some(_hhelper) = &self.historical {
+            if self.current.effect_type == 0x14 {
+                // Historical Kxy effect bug
+                return;
+            }
         }
 
         // First, load instr

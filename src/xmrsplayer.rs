@@ -68,7 +68,7 @@ impl XmrsPlayer {
         };
 
         player.channel =
-            vec![Channel::new(module.clone(), sample_rate, historical, historical2); num_channels];
+            vec![Channel::new(module.clone(), sample_rate, historical2); num_channels];
 
         player
     }
