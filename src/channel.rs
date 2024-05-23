@@ -28,6 +28,7 @@ pub struct Channel {
     pub current: PatternSlot,
 
     period: f32,
+    period_out: Option<f32>, /* used for porta_semitone_slides */
 
     volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
     panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
@@ -162,6 +163,7 @@ impl Channel {
                 self.panning = instr.panning;
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
+                    self.period_out = None;
                     self.period = self.period_helper.note_to_period(self.note);
                     instr.update_frequency(self.period, 0.0, self.vibrato.value());
                 }
@@ -188,7 +190,13 @@ impl Channel {
                 self.actual_volume[0] = volume * panning.sqrt();
                 self.actual_volume[1] = volume * (1.0 - panning).sqrt();
 
-                instr.update_frequency(self.period, self.arpeggio.value(), self.vibrato.value())
+                let period = if let Some(p) = self.period_out {
+                    p
+                } else {
+                    self.period
+                };
+
+                instr.update_frequency(period, self.arpeggio.value(), self.vibrato.value())
             }
             None => {}
         }
@@ -199,9 +207,9 @@ impl Channel {
             Some(instr) => instr.get_finetune(),
             None => 0.0,
         };
-        self.period = self
+        self.period_out = Some(self
             .period_helper
-            .adjust_period_from_note(self.period, 0.0, finetune);
+            .adjust_period_from_note(self.period, 0.0, finetune));
     }
 
     fn tick_effects(&mut self, current_tick: u16) {
