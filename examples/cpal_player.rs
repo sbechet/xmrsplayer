@@ -100,7 +100,7 @@ fn cpal_play(
         }
         player_lock.debug(debug);
         player_lock.set_max_loop_count(loops);
-        player_lock.goto(position, 0);
+        player_lock.goto(position, 0, 0);
     }
 
     start_audio_player(player.clone()).expect("failed to start player");
