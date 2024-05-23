@@ -148,10 +148,9 @@ impl StateInstrDefault {
         }
     }
 
-    /// use sample finetune or force if finetune arg!=0
-    pub fn get_finetuned_note(&self, finetune: f32) -> f32 {
+    pub fn get_finetuned_note(&self) -> f32 {
         match &self.state_sample {
-            Some(s) if s.is_enabled() => s.get_finetuned_note(finetune),
+            Some(s) if s.is_enabled() => s.get_finetuned_note(),
             _ => 0.0,
         }
     }
@@ -161,6 +160,13 @@ impl StateInstrDefault {
         match &self.state_sample {
             Some(s) if s.is_enabled() => s.get_finetune(),
             _ => 0.0,
+        }
+    }
+
+    pub fn set_finetune(&mut self, finetune: f32) {
+        match &mut self.state_sample {
+            Some(s) if s.is_enabled() => s.set_finetune(finetune),
+            _ => {}
         }
     }
 

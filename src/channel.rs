@@ -497,8 +497,9 @@ impl Channel {
                                 Some(i) => {
                                     let finetune =
                                         (self.current.effect_parameter & 0x0F) as f32 / 8.0 - 1.0;
+                                    i.set_finetune(finetune);
                                     self.note = self.current.note.value() as f32 - 1.0
-                                        + i.get_finetuned_note(finetune);
+                                        + i.get_finetuned_note();
                                     self.period = self.period_helper.note_to_period(self.note);
                                 }
                                 None => {}
@@ -750,15 +751,15 @@ impl Channel {
                     if self.current.has_tone_portamento() {
                         match &i.state_sample {
                             Some(s) if s.is_enabled() => {
-                                self.note = self.current.note.value() as f32 - 1.0
-                                    + s.get_finetuned_note(0.0)
+                                self.note =
+                                    self.current.note.value() as f32 - 1.0 + s.get_finetuned_note()
                             }
                             _ => self.cut_note(),
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
                             self.orig_note =
-                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note(0.0);
+                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
                             self.note = self.orig_note;
                         }
 

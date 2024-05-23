@@ -16,6 +16,7 @@ impl Deref for StateSample {
 #[derive(Clone)]
 pub struct StateSample {
     sample: Arc<Sample>,
+    finetune: f32,
     /// current seek position
     position: f32,
     /// step is freq / rate
@@ -28,11 +29,12 @@ pub struct StateSample {
 
 impl StateSample {
     pub fn new(sample: Arc<Sample>, rate: f32) -> Self {
-        let pos = if sample.len() == 0 { -1.0 } else { 0.0 };
-
+        let position = if sample.len() == 0 { -1.0 } else { 0.0 };
+        let finetune = sample.finetune;
         Self {
             sample,
-            position: pos,
+            finetune,
+            position,
             step: 0.0,
             ping: true,
             rate,
@@ -48,7 +50,7 @@ impl StateSample {
         if note < 0.0 || note >= NOTE_B9 {
             return None;
         }
-        let note = NOTE_C4 + self.get_finetuned_note(0.0);
+        let note = NOTE_C4 + self.get_finetuned_note();
         let c4_period = ph.note_to_period(note);
         Some(ph.frequency(c4_period, 0.0, 0.0))
     }
@@ -91,17 +93,17 @@ impl StateSample {
     }
 
     /// use sample finetune or force if finetune arg!=0
-    pub fn get_finetuned_note(&self, finetune: f32) -> f32 {
-        if finetune == 0.0 {
-            self.sample.relative_note as f32 + self.sample.finetune
-        } else {
-            self.sample.relative_note as f32 + finetune
-        }
+    pub fn get_finetuned_note(&self) -> f32 {
+        self.sample.relative_note as f32 + self.finetune
     }
 
     /// get finetune only
     pub fn get_finetune(&self) -> f32 {
-        self.sample.finetune
+        self.finetune
+    }
+
+    pub fn set_finetune(&mut self, finetune: f32) {
+        self.finetune = finetune;
     }
 
     fn tick(&mut self) -> f32 {
