@@ -79,6 +79,7 @@ impl Channel {
         let period_helper = PeriodHelper::new(module.frequency_type, historical.clone());
         Self {
             module,
+            historical: historical.clone(),
             period_helper: period_helper.clone(),
             rate,
             volume: 1.0,
