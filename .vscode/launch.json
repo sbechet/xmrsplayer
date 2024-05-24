@@ -20,7 +20,7 @@
                     "kind": "example"
                 }
             },
-            "args": ["-d", "-f","test.xm","-p","0","-c","1"],
+            "args": ["-t", "-d", "-f","/home/user/Downloads/test.xm","-p","0","-c","1"],
             "cwd": "${workspaceFolder}"
         },
         {
