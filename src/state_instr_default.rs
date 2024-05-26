@@ -42,6 +42,8 @@ pub struct StateInstrDefault {
 
     /// Current volume
     pub volume: f32,
+    /// Original Sample volume
+    volume_orig: f32,
 
     /// Current panning
     pub panning: f32,
@@ -69,6 +71,7 @@ impl StateInstrDefault {
             sustained: true,
             volume_fadeout: 1.0,
             volume: 1.0,
+            volume_orig: 1.0,
             panning: 0.5,
         }
     }
@@ -107,6 +110,12 @@ impl StateInstrDefault {
         self.volume_fadeout = 1.0;
         self.envelope_volume.reset();
         self.envelope_panning.reset();
+    }
+
+    pub fn volume_reset(&mut self) {
+        self.volume = self.volume_orig;
+        self.volume_fadeout = 1.0;
+        self.sustained = true;
     }
 
     pub fn vibrato_reset(&mut self) {
@@ -199,6 +208,7 @@ impl StateInstrDefault {
             let state_sample = StateSample::new(sample, self.rate);
             self.panning = state_sample.get_panning();
             self.volume = state_sample.get_volume();
+            self.volume_orig = self.volume;
             self.state_sample = Some(state_sample);
             return true;
         } else {

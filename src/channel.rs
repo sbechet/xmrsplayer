@@ -23,7 +23,6 @@ pub struct Channel {
     rate: f32,
 
     note: f32,
-    orig_note: f32, /* The original note before effect modifications, as read in the pattern. */
 
     pub current: PatternSlot,
 
@@ -157,6 +156,7 @@ impl Channel {
                 instr.vibrato_reset();
 
                 if !contains(flags, TRIGGER_KEEP_VOLUME) {
+                    instr.volume_reset();
                     self.volume = instr.volume;
                 }
 
@@ -299,6 +299,18 @@ impl Channel {
                             self.tick0_volume_effects();
                             // Effects
                             self.tick0_effects();
+                            
+                            /* Special KeyOff cases */
+                            if let Note::KeyOff = self.current.note {
+                                if self.current.instrument == 0 {
+                                    if let Some(i) = &mut self.instr {
+                                        i.volume_reset();
+                                    }
+                                } else {
+                                    self.trigger_note(TRIGGER_KEEP_NONE);
+                                }
+                            }
+
                         }
                     }
                     _ => {}
@@ -551,23 +563,21 @@ impl Channel {
                         self.volume += self.volume_slide_tick0.tick();
                     }
                     0xD => {
-                        /* EDy: Note delay */
-                        /* TODO: figure this out better. EDy triggers
-                         * the note even when there no note and no
-                         * instrument. But ED0 acts like like a ghost
-                         * note, EDy (y ≠ 0) does not. */
-                        if let Note::None = self.current.note {
-                            if self.current.instrument == 0 {
-                                if self.current.effect_parameter & 0x0F != 0 {
-                                    self.note = self.orig_note;
-                                    self.trigger_note(TRIGGER_KEEP_VOLUME);
-                                } else {
+                        /* ED0: Note with no delay */
+                        if self.current.effect_parameter & 0xF0 == 0 {
+                            match self.current.note {
+                                Note::None => {
                                     self.trigger_note(
-                                        TRIGGER_KEEP_VOLUME
-                                            | TRIGGER_KEEP_PERIOD
-                                            | TRIGGER_KEEP_SAMPLE_POSITION,
-                                    );
-                                }
+                                        TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD);
+                                },
+                                Note::KeyOff => {
+                                    if self.current.instrument == 0 {
+                                        self.key_off(0);
+                                    } else {
+                                        self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                                    }
+                                },
+                                _ => {},
                             }
                         }
                     }
@@ -746,9 +756,12 @@ impl Channel {
                 return self.tick0_change_instr(true);
             } else if !self.current.note.is_keyoff() {
                 return self.tick0_change_instr(false);
+            } else if self.current.note.is_keyoff() {
+                self.trigger_note(TRIGGER_KEEP_PERIOD);
             }
         }
-        return true;
+        return 
+        true;
     }
 
     fn tick0_load_note(&mut self, new_instr: bool) {
@@ -765,9 +778,7 @@ impl Channel {
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
-                            self.orig_note =
-                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
-                            self.note = self.orig_note;
+                            self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
                         }
 
                         if self.current.instrument > 0 {
@@ -808,7 +819,8 @@ impl Channel {
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
-        if !self.current.has_note_delay() {
+        if !self.current.has_note_delay() ||
+            (self.current.has_note_delay() && self.current.effect_parameter & 0x0F == 0) {
             /* load instrument then note */
             self.tick0_load_instrument_and_note();
             // Volume effect
