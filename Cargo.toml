@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.5.20"
+version = "0.6.0"
 edition = "2021"
 description = "XMrsPlayer is a safe soundtracker music player"
 authors = ["Sebastien Bechet"]
@@ -10,11 +10,11 @@ repository = "https://codeberg.org/sbechet/xmrsplayer"
 readme = "README.md"
 license = "MIT"
 
-keywords = ["xm", "module", "mod", "s3m", "tracker"]
-categories = ["multimedia::audio"]
+keywords = ["xm", "module", "mod", "s3m", "soundtracker"]
+categories = ["multimedia::audio", "embedded", "no-std"]
 
 [dependencies]
-xmrs = { version = "0.5.13" }
+xmrs = { version = "0.6.0" }
 clap = { version = "4.4", optional = true, features = ["cargo", "derive"] }
 rodio =  { version = "0.18", optional = true }
 console =  { version = "0.15", optional = true }
@@ -27,10 +27,6 @@ demo = ["clap", "rodio", "console", "cpal"]
 [lib]
 name = "xmrsplayer"
 path = "src/lib.rs"
-
-[examples]
-rodio_player = { name = "rodio_player", path = "examples/rodio_player.rs", features=["demo"] }
-cpal_player = { name = "cpal_player", path = "examples/cpal_player.rs", features=["demo"] }
 
 [profile.release]
 strip = true

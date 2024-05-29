@@ -2,12 +2,11 @@ use crate::channel::Channel;
 use crate::helper::*;
 use crate::historical_helper::HistoricalHelper;
 use crate::triggerkeep::*;
-use std::sync::{Arc, Mutex};
+use alloc::{vec, vec::Vec};
 use xmrs::prelude::*;
 
-#[derive(Default)]
-pub struct XmrsPlayer {
-    module: Arc<Module>,
+pub struct XmrsPlayer<'a> {
+    module: &'a Module,
     sample_rate: f32,
 
     tempo: u16,
@@ -31,7 +30,7 @@ pub struct XmrsPlayer {
     /// Extra ticks to be played before going to the next row - Used for EEy effect
     extra_ticks: u16,
 
-    pub channel: Vec<Channel>,
+    pub channel: Vec<Channel<'a>>,
 
     row_loop_count: Vec<Vec<u8>>,
     pub loop_count: u8,
@@ -40,35 +39,45 @@ pub struct XmrsPlayer {
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
     debug: bool,
-    historical: bool,
-    hhelper: Arc<Mutex<HistoricalHelper>>,
+    hhelper: Option<HistoricalHelper>,
 }
 
-impl XmrsPlayer {
-    pub fn new(module: Arc<Module>, sample_rate: f32, historical: bool) -> Self {
+impl<'a> XmrsPlayer<'a> {
+    pub fn new(module: &'a Module, sample_rate: f32, historical: bool) -> Self {
         let num_channels = module.get_num_channels();
-        let hhelper = Arc::new(Mutex::new(HistoricalHelper::new(module.default_tempo)));
+        let hhelper = if historical {
+            Some(HistoricalHelper::new(module.default_tempo))
+        } else {
+            None
+        };
         let mut player = Self {
-            module: module.clone(),
+            module,
             sample_rate,
             tempo: module.default_tempo,
             bpm: module.default_bpm,
             global_volume: 1.0,
             amplification: 0.25,
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
-            historical,
-            hhelper: Arc::clone(&hhelper),
-            ..Default::default()
+            hhelper: hhelper.clone(),
+            global_volume_slide_param: 0,
+            current_table_index: 0,
+            current_row: 0,
+            current_tick: 0,
+            remaining_samples_in_tick: 0.0,
+            generated_samples: 0,
+            position_jump: false,
+            pattern_break: false,
+            jump_dest: 0,
+            jump_row: 0,
+            extra_ticks: 0,
+            channel: vec![],
+            loop_count: 0,
+            max_loop_count: 0,
+            right_sample: None,
+            debug: false,
         };
 
-        let historical2 = if historical {
-            Some(Arc::clone(&hhelper))
-        } else {
-            None
-        };
-
-        player.channel =
-            vec![Channel::new(module.clone(), sample_rate, historical2); num_channels];
+        player.channel = vec![Channel::new(module, sample_rate, hhelper.clone()); num_channels];
 
         player
     }
@@ -161,6 +170,8 @@ impl XmrsPlayer {
         if self.current_table_index as usize >= self.module.pattern_order.len() {
             self.current_table_index = self.module.restart_position;
         }
+
+        #[cfg(feature = "std")]
         if self.debug {
             println!(
                 "pattern_order[0x{:02x}] = 0x{:02x}",
@@ -209,7 +220,7 @@ impl XmrsPlayer {
                         } else {
                             /* Set loop start point */
                             ch.pattern_loop_origin = self.current_row;
-                            if self.historical {
+                            if let Some(_hhelper) = &self.hhelper {
                                 // Replicate FT2 E60 bug
                                 self.jump_row = ch.pattern_loop_origin;
                             }
@@ -279,11 +290,13 @@ impl XmrsPlayer {
         let mut in_a_loop = false;
 
         let current_row = self.current_row as usize;
+        #[cfg(feature = "std")]
         if self.debug {
             print!("{:02X} ", current_row);
         }
         for ch_index in 0..num_channels {
             let ps = &self.module.pattern[pat_idx][current_row][ch_index];
+            #[cfg(feature = "std")]
             if self.debug {
                 print!("{:?}", ps);
             }
@@ -293,6 +306,7 @@ impl XmrsPlayer {
                 in_a_loop = true;
             }
         }
+        #[cfg(feature = "std")]
         if self.debug {
             println!();
         }
@@ -361,8 +375,8 @@ impl XmrsPlayer {
                 self.extra_ticks = 0;
             }
 
-            if self.historical {
-                self.hhelper.lock().unwrap().set_tempo(self.tempo);
+            if let Some(hhelper) = &mut self.hhelper {
+                hhelper.set_tempo(self.tempo);
             }
             /* FT2 manual says number of ticks / second = BPM * 0.4 */
             self.remaining_samples_in_tick += self.sample_rate / (self.bpm as f32 * 0.4);
@@ -437,7 +451,7 @@ impl XmrsPlayer {
     }
 }
 
-impl Iterator for XmrsPlayer {
+impl<'a> Iterator for XmrsPlayer<'a> {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {

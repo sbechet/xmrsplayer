@@ -1,4 +1,7 @@
 #![forbid(unsafe_code)]
+#![no_std]
+
+extern crate alloc;
 
 pub mod effect;
 pub mod triggerkeep;

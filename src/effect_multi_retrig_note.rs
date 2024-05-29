@@ -2,7 +2,6 @@ use crate::effect::*;
 use crate::helper::*;
 use crate::historical_helper::HistoricalHelper;
 use core::default::Default;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 pub struct MultiRetrigNote {
@@ -13,10 +12,10 @@ pub struct MultiRetrigNote {
 impl MultiRetrigNote {
     fn value_new_computers(&self, vol: f32) -> f32 {
         vol * if self.note_retrig_vol <= 0.5 {
-            std::f32::consts::FRAC_PI_2
-                + self.note_retrig_vol * (f32::asin(0.5) - std::f32::consts::FRAC_PI_2)
+            core::f32::consts::FRAC_PI_2
+                + self.note_retrig_vol * (f32::asin(0.5) - core::f32::consts::FRAC_PI_2)
         } else {
-            std::f32::consts::PI * (1.0 + self.note_retrig_vol)
+            core::f32::consts::PI * (1.0 + self.note_retrig_vol)
         }
     }
 }
@@ -24,18 +23,18 @@ impl MultiRetrigNote {
 #[derive(Clone, Default)]
 pub struct EffectMultiRetrigNote {
     data: MultiRetrigNote,
-    historical: Option<Arc<Mutex<HistoricalHelper>>>,
+    historical: Option<HistoricalHelper>,
     tick: f32,
 }
 
 impl EffectMultiRetrigNote {
-    pub fn new(historical: Option<Arc<Mutex<HistoricalHelper>>>, speed: f32, vol: f32) -> Self {
+    pub fn new(historical: Option<HistoricalHelper>, speed: f32, vol: f32) -> Self {
         Self {
             data: MultiRetrigNote {
                 note_retrig_speed: speed,
                 note_retrig_vol: vol,
             },
-            historical,
+            historical: historical.clone(),
             ..Default::default()
         }
     }
@@ -71,7 +70,9 @@ impl EffectPlugin for EffectMultiRetrigNote {
             vol
         } else {
             let mut v = match &self.historical {
-                Some(_hhelper) => HistoricalHelper::value_historical_computers(vol, self.data.note_retrig_vol),
+                Some(_hhelper) => {
+                    HistoricalHelper::value_historical_computers(vol, self.data.note_retrig_vol)
+                }
                 None => self.data.value_new_computers(vol),
             };
             clamp(&mut v);

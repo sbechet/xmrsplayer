@@ -1,21 +1,12 @@
+/// A Sample State
 use crate::helper::*;
 use crate::period_helper::PeriodHelper;
-/// A Sample State
-use std::ops::Deref;
-use std::sync::Arc;
 use xmrs::prelude::*;
 use xmrs::sample::Sample;
 
-impl Deref for StateSample {
-    type Target = Arc<Sample>;
-    fn deref(&self) -> &Arc<Sample> {
-        &self.sample
-    }
-}
-
 #[derive(Clone)]
-pub struct StateSample {
-    sample: Arc<Sample>,
+pub struct StateSample<'a> {
+    sample: &'a Sample,
     finetune: f32,
     /// current seek position
     position: f32,
@@ -27,8 +18,8 @@ pub struct StateSample {
     rate: f32,
 }
 
-impl StateSample {
-    pub fn new(sample: Arc<Sample>, rate: f32) -> Self {
+impl<'a> StateSample<'a> {
+    pub fn new(sample: &'a Sample, rate: f32) -> Self {
         let position = if sample.len() == 0 { -1.0 } else { 0.0 };
         let finetune = sample.finetune;
         Self {
@@ -200,7 +191,7 @@ impl StateSample {
     }
 }
 
-impl Iterator for StateSample {
+impl<'a> Iterator for StateSample<'a> {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {

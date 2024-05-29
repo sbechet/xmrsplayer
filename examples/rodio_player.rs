@@ -71,11 +71,14 @@ fn main() -> Result<(), std::io::Error> {
                     match XmModule::load(&contents) {
                         Ok(xm) => {
                             drop(contents); // cleanup memory
-                            let module = Arc::new(xm.to_module());
+                            let module = xm.to_module();
                             drop(xm);
                             println!("Playing {} !", module.name);
+
+                            let module = Box::new(module);
+                            let module_ref: &'static Module = Box::leak(module);
                             rodio_play(
-                                module,
+                                module_ref,
                                 cli.amplification,
                                 cli.position,
                                 cli.loops,
@@ -94,11 +97,13 @@ fn main() -> Result<(), std::io::Error> {
                     match AmigaModule::load(&contents) {
                         Ok(amiga) => {
                             drop(contents); // cleanup memory
-                            let module = Arc::new(amiga.to_module());
+                            let module = amiga.to_module();
                             drop(amiga);
                             println!("Playing {} !", module.name);
+                            let module = Box::new(module);
+                            let module_ref: &'static Module = Box::leak(module);
                             rodio_play(
-                                module,
+                                module_ref,
                                 cli.amplification,
                                 cli.position,
                                 cli.loops,
@@ -124,7 +129,7 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn rodio_play(
-    module: Arc<Module>,
+    module: &'static Module,
     amplification: f32,
     position: usize,
     loops: u8,
@@ -143,7 +148,7 @@ fn rodio_play(
         || module.comment == "FastTracker v2.00 (1.04)";
 
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
-        Arc::clone(&module),
+        module,
         SAMPLE_RATE as f32,
         is_ft2,
     )));
@@ -164,9 +169,7 @@ fn rodio_play(
         player_lock.set_max_loop_count(loops);
         player_lock.goto(position, 0, speed);
     }
-
-    let player_clone = Arc::clone(&player);
-    let source = BufferedSource::new(player, SAMPLE_RATE);
+    let source = BufferedSource::new(Arc::clone(&player), SAMPLE_RATE);
     sink.append(source);
     // sink.append(player.buffered());
     sink.play();
@@ -180,8 +183,8 @@ fn rodio_play(
         if let Ok(character) = stdout.read_key() {
             match character {
                 Key::Enter => {
-                    let ti = player_clone.lock().unwrap().get_current_table_index();
-                    let p = player_clone.lock().unwrap().get_current_pattern();
+                    let ti = player.lock().unwrap().get_current_table_index();
+                    let p = player.lock().unwrap().get_current_pattern();
                     println!("current table index:{:02x}, current pattern:{:02x}", ti, p);
                 }
                 Key::Escape => {
@@ -190,18 +193,16 @@ fn rodio_play(
                     return;
                 }
                 Key::ArrowLeft => {
-                    let mut player = player_clone.lock().unwrap();
-                    let i = player.get_current_table_index();
+                    let i = player.lock().unwrap().get_current_table_index();
                     if i != 0 {
-                        player.goto(i - 1, 0, 0);
+                        player.lock().unwrap().goto(i - 1, 0, 0);
                     }
                 }
                 Key::ArrowRight => {
-                    let mut player = player_clone.lock().unwrap();
                     let len = module.pattern_order.len();
-                    let i = player.get_current_table_index();
+                    let i = player.lock().unwrap().get_current_table_index();
                     if i + 1 < len {
-                        player.goto(i + 1, 0, 0);
+                        player.lock().unwrap().goto(i + 1, 0, 0);
                     }
                 }
                 Key::Char(' ') => {
@@ -210,10 +211,10 @@ fn rodio_play(
                         sink.pause();
                         playing = false;
                         {
-                            let player = player_clone.lock().unwrap();
-                            let ti = player.get_current_table_index();
-                            let p = player.get_current_pattern();
-                            let row = player.get_current_row();
+                            let player_lock = player.lock().unwrap();
+                            let ti = player_lock.get_current_table_index();
+                            let p = player_lock.get_current_pattern();
+                            let row = player_lock.get_current_row();
                             println!("Pattern [{:02X}]={:02X}, Row {:02X}", ti, p, row);
                         }
                     } else {

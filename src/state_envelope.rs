@@ -1,19 +1,18 @@
-use crate::helper::*;
 /// An Instrument Envelope State
-use std::sync::Arc;
+use crate::helper::*;
 use xmrs::prelude::*;
 
 #[derive(Clone)]
-pub struct StateEnvelope {
-    env: Arc<Envelope>,
+pub struct StateEnvelope<'a> {
+    env: &'a Envelope,
     default_value: f32,
     pub value: f32,
     pub counter: u16,
 }
 
-impl StateEnvelope {
+impl<'a> StateEnvelope<'a> {
     // value is volume_envelope_volume=1.0 or volume_envelope_panning=0.5
-    pub fn new(env: Arc<Envelope>, default_value: f32) -> Self {
+    pub fn new(env: &'a Envelope, default_value: f32) -> Self {
         Self {
             env,
             default_value,

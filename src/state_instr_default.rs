@@ -1,39 +1,35 @@
+use core::ops::Deref;
+
+/// An InstrDefault State
 use crate::helper::*;
 use crate::period_helper::PeriodHelper;
 use crate::{
     state_auto_vibrato::StateAutoVibrato, state_envelope::StateEnvelope, state_sample::StateSample,
 };
-/// An InstrDefault State
-use std::ops::Deref;
-use std::sync::Arc;
 use xmrs::prelude::*;
 
-impl Deref for StateInstrDefault {
-    type Target = Arc<InstrDefault>;
-    fn deref(&self) -> &Arc<InstrDefault> {
+impl<'a> Deref for StateInstrDefault<'a> {
+    type Target = InstrDefault;
+    fn deref(&self) -> &InstrDefault {
         &self.instr
     }
 }
 
-// impl DerefMut for StateInstrDefault {
-//     fn deref_mut(&mut self) -> &mut InstrDefault { &mut self.instr }
-// }
-
 #[derive(Clone)]
-pub struct StateInstrDefault {
-    instr: Arc<InstrDefault>,
+pub struct StateInstrDefault<'a> {
+    instr: &'a InstrDefault,
     pub num: usize,
     /// Output frequency
     rate: f32,
     period_helper: PeriodHelper,
     /// Sample state
-    pub state_sample: Option<StateSample>,
+    pub state_sample: Option<StateSample<'a>>,
     /// Vibrato state
-    pub state_vibrato: StateAutoVibrato,
+    pub state_vibrato: StateAutoVibrato<'a>,
     /// Volume Envelope state
-    pub envelope_volume: StateEnvelope,
+    pub envelope_volume: StateEnvelope<'a>,
     /// Panning Envelope state
-    pub envelope_panning: StateEnvelope,
+    pub envelope_panning: StateEnvelope<'a>,
 
     // Volume sustained?
     pub sustained: bool,
@@ -49,16 +45,16 @@ pub struct StateInstrDefault {
     pub panning: f32,
 }
 
-impl StateInstrDefault {
+impl<'a> StateInstrDefault<'a> {
     pub fn new(
-        instr: Arc<InstrDefault>,
+        instr: &'a InstrDefault,
         num: usize,
         period_helper: PeriodHelper,
         rate: f32,
     ) -> Self {
-        let v = instr.vibrato.clone();
-        let ve = instr.volume_envelope.clone();
-        let pe = instr.panning_envelope.clone();
+        let v = &instr.vibrato;
+        let ve = &instr.volume_envelope;
+        let pe = &instr.panning_envelope;
         Self {
             instr,
             num,
@@ -87,7 +83,7 @@ impl StateInstrDefault {
         }
     }
 
-    pub fn replace_instr(&mut self, instr: Arc<InstrDefault>) {
+    pub fn replace_instr(&mut self, instr: &'a InstrDefault) {
         self.instr = instr;
     }
 
@@ -148,11 +144,11 @@ impl StateInstrDefault {
             self.volume_fadeout -= self.instr.volume_fadeout;
             clamp_down(&mut self.volume_fadeout);
         }
-        if self.volume_envelope.enabled {
+        if self.instr.volume_envelope.enabled {
             self.envelope_volume.tick(self.sustained);
         }
         // Panning
-        if self.panning_envelope.enabled {
+        if self.instr.panning_envelope.enabled {
             self.envelope_panning.tick(self.sustained);
         }
     }
@@ -204,7 +200,7 @@ impl StateInstrDefault {
 
     fn select_sample(&mut self, num: usize) -> bool {
         if num < self.instr.sample.len() {
-            let sample = Arc::clone(&self.instr.sample[num]);
+            let sample = &self.instr.sample[num];
             let state_sample = StateSample::new(sample, self.rate);
             self.panning = state_sample.get_panning();
             self.volume = state_sample.get_volume();
@@ -225,7 +221,7 @@ impl StateInstrDefault {
     }
 }
 
-impl Iterator for StateInstrDefault {
+impl<'a> Iterator for StateInstrDefault<'a> {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -1,5 +1,3 @@
-use std::sync::{Arc, Mutex};
-
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;
 use crate::effect_multi_retrig_note::EffectMultiRetrigNote;
@@ -15,10 +13,10 @@ use crate::helper::*;
 use crate::state_instr_default::StateInstrDefault;
 use xmrs::prelude::*;
 
-#[derive(Clone, Default)]
-pub struct Channel {
-    module: Arc<Module>,
-    historical: Option<Arc<Mutex<HistoricalHelper>>>,
+#[derive(Clone)]
+pub struct Channel<'a> {
+    module: &'a Module,
+    historical: Option<HistoricalHelper>,
     period_helper: PeriodHelper,
     rate: f32,
 
@@ -33,7 +31,7 @@ pub struct Channel {
     panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
 
     // Instrument
-    instr: Option<StateInstrDefault>,
+    instr: Option<StateInstrDefault<'a>>,
 
     arpeggio: EffectArpeggio,
     multi_retrig_note: EffectMultiRetrigNote,
@@ -69,12 +67,8 @@ pub struct Channel {
     pub actual_volume: [f32; 2],
 }
 
-impl Channel {
-    pub fn new(
-        module: Arc<Module>,
-        rate: f32,
-        historical: Option<Arc<Mutex<HistoricalHelper>>>,
-    ) -> Self {
+impl<'a> Channel<'a> {
+    pub fn new(module: &'a Module, rate: f32, historical: Option<HistoricalHelper>) -> Self {
         let period_helper = PeriodHelper::new(module.frequency_type, historical.clone());
         Self {
             module,
@@ -88,7 +82,28 @@ impl Channel {
             vibrato: EffectVibratoTremolo::vibrato(&period_helper),
             tremolo: EffectVibratoTremolo::tremolo(),
             multi_retrig_note: EffectMultiRetrigNote::new(historical, 0.0, 0.0),
-            ..Default::default()
+            note: 0.0,
+            current: PatternSlot::default(),
+            period: 0.0,
+            period_out: None,
+            instr: None,
+            panning_slide: EffectVolumePanningSlide::default(),
+            portamento_up: EffectPortamento::default(),
+            portamento_down: EffectPortamento::default(),
+            portamento_fine_up: EffectPortamento::default(),
+            portamento_fine_down: EffectPortamento::default(),
+            portamento_extrafine_up: EffectPortamento::default(),
+            portamento_extrafine_down: EffectPortamento::default(),
+            volume_slide: EffectVolumePanningSlide::default(),
+            volume_slide_tick0: EffectVolumePanningSlide::default(),
+            porta_semitone_slides: false,
+            note_delay_param: 0,
+            pattern_loop_origin: 0,
+            pattern_loop_count: 0,
+            tremor_param: 0,
+            tremor_on: false,
+            muted: false,
+            actual_volume: [0.0, 0.0],
         }
     }
 
@@ -208,9 +223,11 @@ impl Channel {
             Some(instr) => instr.get_finetune(),
             None => 0.0,
         };
-        self.period_out = Some(self
-            .period_helper
-            .adjust_period_from_note(self.period, 0.0, finetune));
+        self.period_out = Some(self.period_helper.adjust_period_from_note(
+            self.period,
+            0.0,
+            finetune,
+        ));
     }
 
     fn tick_effects(&mut self, current_tick: u16) {
@@ -299,7 +316,7 @@ impl Channel {
                             self.tick0_volume_effects();
                             // Effects
                             self.tick0_effects();
-                            
+
                             /* Special KeyOff cases */
                             if let Note::KeyOff = self.current.note {
                                 if self.current.instrument == 0 {
@@ -310,7 +327,6 @@ impl Channel {
                                     self.trigger_note(TRIGGER_KEEP_NONE);
                                 }
                             }
-
                         }
                     }
                     _ => {}
@@ -568,16 +584,21 @@ impl Channel {
                             match self.current.note {
                                 Note::None => {
                                     self.trigger_note(
-                                        TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD);
-                                },
+                                        TRIGGER_KEEP_SAMPLE_POSITION
+                                            | TRIGGER_KEEP_VOLUME
+                                            | TRIGGER_KEEP_PERIOD,
+                                    );
+                                }
                                 Note::KeyOff => {
                                     if self.current.instrument == 0 {
                                         self.key_off(0);
                                     } else {
-                                        self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                                        self.trigger_note(
+                                            TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
+                                        );
                                     }
-                                },
-                                _ => {},
+                                }
+                                _ => {}
                             }
                         }
                     }
@@ -712,16 +733,12 @@ impl Channel {
             if id.sample.len() != 0 {
                 if sample_only {
                     match &mut self.instr {
-                        Some(i) => i.replace_instr(Arc::clone(id)),
+                        Some(i) => i.replace_instr(id),
                         _ => {}
                     }
                 } else {
-                    let instr = StateInstrDefault::new(
-                        id.clone(),
-                        instrnr,
-                        self.period_helper.clone(),
-                        self.rate,
-                    );
+                    let instr =
+                        StateInstrDefault::new(id, instrnr, self.period_helper.clone(), self.rate);
                     self.instr = Some(instr);
                 }
             }
@@ -760,8 +777,7 @@ impl Channel {
                 self.trigger_note(TRIGGER_KEEP_PERIOD);
             }
         }
-        return 
-        true;
+        return true;
     }
 
     fn tick0_load_note(&mut self, new_instr: bool) {
@@ -778,7 +794,8 @@ impl Channel {
                         }
                     } else if i.set_note(self.current.note) {
                         if let Some(s) = &i.state_sample {
-                            self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
+                            self.note =
+                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
                         }
 
                         if self.current.instrument > 0 {
@@ -819,8 +836,9 @@ impl Channel {
     pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
-        if !self.current.has_note_delay() ||
-            (self.current.has_note_delay() && self.current.effect_parameter & 0x0F == 0) {
+        if !self.current.has_note_delay()
+            || (self.current.has_note_delay() && self.current.effect_parameter & 0x0F == 0)
+        {
             /* load instrument then note */
             self.tick0_load_instrument_and_note();
             // Volume effect
@@ -843,7 +861,7 @@ impl Channel {
     }
 }
 
-impl Iterator for Channel {
+impl<'a> Iterator for Channel<'a> {
     type Item = (f32, f32);
 
     // Was next_of_sample()

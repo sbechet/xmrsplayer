@@ -1,12 +1,11 @@
 /// An Instrument Vibrato State
-use std::sync::Arc;
 use xmrs::{instr_vibrato::InstrVibrato, module::FrequencyType};
 
 use crate::period_helper::PeriodHelper;
 
-#[derive(Clone, Default)]
-pub struct StateAutoVibrato {
-    vibrato: Arc<InstrVibrato>,
+#[derive(Clone)]
+pub struct StateAutoVibrato<'a> {
+    vibrato: &'a InstrVibrato,
     period_helper: PeriodHelper,
     sweep: f32,
     amp: f32,
@@ -14,12 +13,15 @@ pub struct StateAutoVibrato {
     pub period_offset: f32,
 }
 
-impl StateAutoVibrato {
-    pub fn new(vibrato: Arc<InstrVibrato>, period_helper: PeriodHelper) -> Self {
+impl<'a> StateAutoVibrato<'a> {
+    pub fn new(vibrato: &'a InstrVibrato, period_helper: PeriodHelper) -> Self {
         let mut sv = Self {
-            vibrato: Arc::clone(&vibrato),
+            vibrato,
             period_helper,
-            ..Default::default()
+            sweep: 0.0,
+            amp: 0.0,
+            pos: 0.0,
+            period_offset: 0.0,
         };
 
         sv.reset();

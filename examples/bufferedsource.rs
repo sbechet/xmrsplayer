@@ -7,15 +7,15 @@ use xmrsplayer::xmrsplayer::XmrsPlayer;
 
 pub const BUFFER_SIZE: usize = 2048;
 
-pub struct BufferedSource {
-    pub player: Arc<Mutex<XmrsPlayer>>,
+pub struct BufferedSource<'a> {
+    pub player: Arc<Mutex<XmrsPlayer<'a>>>,
     buffer: [f32; BUFFER_SIZE],
     buffer_index: usize,
     sample_rate: u32,
 }
 
-impl BufferedSource {
-    pub fn new(player: Arc<Mutex<XmrsPlayer>>, sample_rate: u32) -> Self {
+impl<'a> BufferedSource<'a> {
+    pub fn new(player: Arc<Mutex<XmrsPlayer<'a>>>, sample_rate: u32) -> Self {
         BufferedSource {
             player,
             buffer: [0.0; BUFFER_SIZE],
@@ -25,7 +25,7 @@ impl BufferedSource {
     }
 }
 
-impl Source for BufferedSource {
+impl<'a> Source for BufferedSource<'a> {
     fn current_frame_len(&self) -> Option<usize> {
         Some(BUFFER_SIZE - self.buffer_index)
     }
@@ -40,7 +40,7 @@ impl Source for BufferedSource {
     }
 }
 
-impl Iterator for BufferedSource {
+impl<'a> Iterator for BufferedSource<'a> {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {

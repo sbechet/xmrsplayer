@@ -1,7 +1,9 @@
 /// Here we concentrate some old bugs
 use crate::period_helper::PeriodHelper;
 
-#[derive(Default)]
+/// Struct is very small we can clone it everywhere in other structs...
+
+#[derive(Default, Clone)]
 pub struct HistoricalHelper {
     pub tempo: u16,
 }
@@ -45,7 +47,12 @@ impl HistoricalHelper {
 
     // Parts from ft2-clone - Copyright (c) 2016-2024, Olav Sørensen - BSD-3-Clause license
     // no way to accept these bugs today!
-    pub fn adjust_period_from_note_historical(phelper: &PeriodHelper, period: u16, arp_note: u16, finetune: i16) -> f32 {
+    pub fn adjust_period_from_note_historical(
+        phelper: &PeriodHelper,
+        period: u16,
+        arp_note: u16,
+        finetune: i16,
+    ) -> f32 {
         let fine_tune: i16 = (finetune / 8 + 16) as i16;
 
         // FT2 bug, should've been 10*12*16. Notes above B-7 (95) will have issues.
@@ -71,5 +78,4 @@ impl HistoricalHelper {
             (lo_period as f32 / 16.0) + ((fine_tune - 16) as f32 / 16.0) + (arp_note as f32);
         phelper.note_to_period(tmp_period).max(1540.0)
     }
-
 }

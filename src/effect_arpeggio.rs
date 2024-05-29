@@ -1,7 +1,6 @@
 use crate::effect::{EffectPlugin, EffectXM2EffectPlugin};
 use crate::historical_helper::HistoricalHelper;
 use core::default::Default;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Default)]
 pub struct Arpeggio {
@@ -12,15 +11,15 @@ pub struct Arpeggio {
 #[derive(Clone, Default)]
 pub struct EffectArpeggio {
     data: Arpeggio,
-    historical: Option<Arc<Mutex<HistoricalHelper>>>,
+    historical: Option<HistoricalHelper>,
     tick: u8,
     in_progress: bool,
 }
 
 impl EffectArpeggio {
-    pub fn new(historical: Option<Arc<Mutex<HistoricalHelper>>>) -> Self {
+    pub fn new(historical: Option<HistoricalHelper>) -> Self {
         Self {
-            historical,
+            historical: historical.clone(),
             ..Default::default()
         }
     }
@@ -55,7 +54,7 @@ impl EffectPlugin for EffectArpeggio {
 
     fn value(&self) -> f32 {
         match &self.historical {
-            Some(historical) => match historical.lock().unwrap().arpeggio_tick(self.tick) {
+            Some(historical) => match historical.arpeggio_tick(self.tick) {
                 1 => self.data.offset1,
                 2 => self.data.offset2,
                 _ => 0.0,

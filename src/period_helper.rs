@@ -1,12 +1,10 @@
-use xmrs::prelude::FrequencyType;
-use std::sync::{Arc, Mutex};
 use crate::historical_helper::HistoricalHelper;
-
+use xmrs::prelude::FrequencyType;
 
 #[derive(Clone)]
 pub struct PeriodHelper {
     pub freq_type: FrequencyType,
-    historical: Option<Arc<Mutex<HistoricalHelper>>>,
+    historical: Option<HistoricalHelper>,
 }
 
 impl Default for PeriodHelper {
@@ -19,10 +17,10 @@ impl Default for PeriodHelper {
 }
 
 impl PeriodHelper {
-    pub fn new(freq_type: FrequencyType, historical: Option<Arc<Mutex<HistoricalHelper>>>) -> Self {
+    pub fn new(freq_type: FrequencyType, historical: Option<HistoricalHelper>) -> Self {
         Self {
             freq_type,
-            historical,
+            historical: historical.clone(),
         }
     }
 
@@ -128,11 +126,14 @@ impl PeriodHelper {
         match &self.historical {
             Some(_hhelper) => {
                 let finetune = (finetune * 127.0) as i16;
-                HistoricalHelper::adjust_period_from_note_historical(&self, period as u16, arp_note as u16, finetune)
-            },
-            None => {
-                self.adjust_period_from_note_new(period, arp_note, finetune)
+                HistoricalHelper::adjust_period_from_note_historical(
+                    &self,
+                    period as u16,
+                    arp_note as u16,
+                    finetune,
+                )
             }
+            None => self.adjust_period_from_note_new(period, arp_note, finetune),
         }
     }
 }

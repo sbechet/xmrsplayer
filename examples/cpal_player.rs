@@ -55,11 +55,13 @@ fn main() -> Result<(), std::io::Error> {
                 Ok(xm) => {
                     drop(contents); // cleanup memory
                     print!("XM '{}' loaded...", xm.header.name);
-                    let module = Arc::new(xm.to_module());
+                    let module = xm.to_module();
+                    let module = Box::new(module);
+                    let module_ref: &'static Module = Box::leak(module);
                     drop(xm);
-                    println!("Playing {} !", module.name);
+                    println!("Playing {} !", module_ref.name);
                     cpal_play(
-                        module.clone(),
+                        module_ref,
                         cli.amplification,
                         cli.position,
                         cli.loops,
@@ -76,18 +78,12 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn cpal_play(
-    module: Arc<Module>,
-    amplification: f32,
-    position: usize,
-    loops: u8,
-    debug: bool,
-) -> Arc<Mutex<XmrsPlayer>> {
+fn cpal_play(module: &'static Module, amplification: f32, position: usize, loops: u8, debug: bool) {
     // try to detect FT2 to play historical bugs
     let is_ft2 = module.comment == "FastTracker v2.00 (1.04)";
 
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
-        module.clone(),
+        module,
         SAMPLE_RATE as f32,
         is_ft2,
     )));
@@ -103,7 +99,7 @@ fn cpal_play(
         player_lock.goto(position, 0, 0);
     }
 
-    start_audio_player(player.clone()).expect("failed to start player");
+    start_audio_player(Arc::clone(&player)).expect("failed to start player");
 
     let stdout = Term::stdout();
     println!("Enter key for info, escape key to exit...");
@@ -115,7 +111,7 @@ fn cpal_play(
                 }
                 Key::Escape => {
                     println!("Have a nice day!");
-                    return player;
+                    return;
                 }
                 _ => {
                     println!("no way");
@@ -129,7 +125,7 @@ fn cpal_play(
     }
 }
 
-fn start_audio_player(player: Arc<Mutex<XmrsPlayer>>) -> Result<(), cpal::StreamError> {
+fn start_audio_player(player: Arc<Mutex<XmrsPlayer<'static>>>) -> Result<(), cpal::StreamError> {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -143,6 +139,7 @@ fn start_audio_player(player: Arc<Mutex<XmrsPlayer>>) -> Result<(), cpal::Stream
     println!("cpal sample rate: {:?}", sample_rate);
 
     std::thread::spawn(move || {
+        let player = Arc::clone(&player);
         let stream = device
             .build_output_stream(
                 &config.config(),
