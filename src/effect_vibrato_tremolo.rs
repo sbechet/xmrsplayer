@@ -1,5 +1,10 @@
 use xmrs::module::FrequencyType;
 
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 use crate::effect::*;
 use crate::period_helper::PeriodHelper;
 

@@ -3,6 +3,11 @@ use crate::helper::*;
 use crate::historical_helper::HistoricalHelper;
 use core::default::Default;
 
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 #[derive(Clone, Default)]
 pub struct MultiRetrigNote {
     note_retrig_speed: f32,
