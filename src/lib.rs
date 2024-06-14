@@ -1,11 +1,6 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 #![no_std]
 
-extern crate alloc;
-
-#[cfg(not(feature = "std"))]
-#[macro_use]
 extern crate alloc;
 
 #[cfg(not(any(feature = "std", feature = "libm", feature = "micromath")))]
