@@ -1,6 +1,11 @@
 use crate::historical_helper::HistoricalHelper;
 use xmrs::prelude::FrequencyType;
 
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 #[derive(Clone)]
 pub struct PeriodHelper {
     pub freq_type: FrequencyType,

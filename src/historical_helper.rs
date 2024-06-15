@@ -1,6 +1,11 @@
 /// Here we concentrate some old bugs
 use crate::period_helper::PeriodHelper;
 
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+
 /// Struct is very small we can clone it everywhere in other structs...
 
 #[derive(Default, Clone)]

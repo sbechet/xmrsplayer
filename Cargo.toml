@@ -14,15 +14,20 @@ keywords = ["xm", "module", "mod", "s3m", "soundtracker"]
 categories = ["multimedia::audio", "embedded", "no-std"]
 
 [dependencies]
-xmrs = { version= "0.6.1", features = ["std"] }
+xmrs = { version = "0.6.1", default-features = false }
 clap = { version = "4.4", optional = true, features = ["cargo", "derive"] }
 rodio =  { version = "0.18", optional = true }
 console =  { version = "0.15", optional = true }
 cpal =  { version = "0.15", optional = true }
+num-traits = { version = "0.2.17",default-features = false, optional=true } # libm wrapper
+micromath = { version = "2.1.0", optional=true }
 
 [features]
-default = []
+default = ["micromath"]
+std = ["xmrs/std"]
 demo = ["clap", "rodio", "console", "cpal"]
+libm = ["num-traits/libm", "xmrs/libm"]
+micromath = ["dep:micromath", "xmrs/micromath"]
 
 [lib]
 name = "xmrsplayer"
