@@ -19,8 +19,6 @@ if you want to use std feature use `cargo build --no-default-features --features
 # Example?
 
 ```
-$ cargo run --release --features demo --example rodio_player
-$ cargo run --release --features demo --example rodio_player -- --help
-$ cargo run --release --features demo --example cpal_player
-$ cargo run --release --features demo --example cpal_player -- --help
+$ cargo run --no-default-features --features=std,demo --release --example rodio_player -- --help
+$ cargo run --no-default-features --features=std,demo --release --example cpal_player -- --help
 ```
