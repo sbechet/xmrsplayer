@@ -27,12 +27,7 @@ impl EffectPlugin for EffectPortamento {
 
     fn clamp(&self, period: f32) -> f32 {
         let final_period = period + self.value();
-        // TODO: maybe clamp can be done elsewhere
-        match final_period {
-            p if p < 1.0 => 1.0,
-            p if p >= 32000.0 => 32000.0 - 1.0,
-            _ => final_period,
-        }
+        final_period.clamp(1.0, 32000.0 - 1.0)
     }
 
     fn value(&self) -> f32 {
