@@ -19,7 +19,7 @@ pub struct EffectArpeggio {
 impl EffectArpeggio {
     pub fn new(historical: Option<HistoricalHelper>) -> Self {
         Self {
-            historical: historical.clone(),
+            historical: historical,
             ..Default::default()
         }
     }

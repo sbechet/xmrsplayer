@@ -39,7 +39,7 @@ impl EffectMultiRetrigNote {
                 note_retrig_speed: speed,
                 note_retrig_vol: vol,
             },
-            historical: historical.clone(),
+            historical: historical,
             ..Default::default()
         }
     }
