@@ -1,14 +1,14 @@
 use xmrs::prelude::FrequencyType;
 
-#[cfg(feature = "libm")]
-use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 
 #[derive(Clone)]
 pub struct PeriodHelper {
-        pub freq_type: FrequencyType,
-        historical: bool,
+    pub freq_type: FrequencyType,
+    historical: bool,
 }
 
 impl Default for PeriodHelper {
@@ -97,7 +97,8 @@ impl PeriodHelper {
         match self.freq_type {
             FrequencyType::LinearFrequencies => Self::linear_period_to_note(period),
             FrequencyType::AmigaFrequencies => Self::amiga_period_to_note(period),
-        }.max(0.0)  // Remove < 0.0 and NaN numbers
+        }
+        .max(0.0) // Remove < 0.0 and NaN numbers
     }
 
     pub fn period_to_frequency(&self, period: f32) -> f32 {
@@ -112,7 +113,7 @@ impl PeriodHelper {
     // new adjust period to arpeggio and finetune delta
     pub fn adjust_period(&self, period: f32, arp_note: f32, finetune: f32, semitone: bool) -> f32 {
         let note_orig: f32 = self.period_to_note(period);
-        
+
         let note = if semitone {
             note_orig.round()
         } else {
@@ -128,6 +129,6 @@ impl PeriodHelper {
             self.note_to_period(note + arp_note + finetune)
         } else {
             self.note_to_period(note + arp_note + finetune)
-        }        
+        }
     }
 }

@@ -1,7 +1,7 @@
-#[cfg(feature = "libm")]
-use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 
 #[inline(always)]
 pub fn lerp(u: f32, v: f32, t: f32) -> f32 {

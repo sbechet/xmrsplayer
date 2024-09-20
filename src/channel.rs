@@ -1,7 +1,7 @@
-#[cfg(feature = "libm")]
-use num_traits::float::Float;
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
 
 use crate::effect::*;
 use crate::effect_arpeggio::EffectArpeggio;

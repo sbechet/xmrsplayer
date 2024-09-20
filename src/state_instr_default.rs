@@ -182,9 +182,9 @@ impl<'a> StateInstrDefault<'a> {
                     period,
                     arp_note,
                     finetune + self.state_vibrato.period_offset,
-                    semitone
+                    semitone,
                 );
-            s.set_step(self.period_helper.period_to_frequency(period_adjusted))
+                s.set_step(self.period_helper.period_to_frequency(period_adjusted))
             }
             None => {}
         }
