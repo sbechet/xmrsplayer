@@ -136,7 +136,20 @@ impl PeriodHelper {
             note_orig
         };
 
-        self.note_to_period(note + arp_note + finetune)
+        if let Some(_) = self.historical {
+            if arp_note != 0.0 {
+                // From C-0 (0) to B-7 (95) only
+                let mut note = note;
+                if note.ceil() >= 95.0 {
+                    note = 95.0;
+                }
+                self.note_to_period(note + arp_note + finetune)
+            } else {
+                self.note_to_period(note + arp_note + finetune)    
+            }
+        } else {
+            self.note_to_period(note + arp_note + finetune)
+        }        
     }
 
     /*
