@@ -43,7 +43,7 @@ impl<'a> StateSample<'a> {
         }
         let note = NOTE_C4 + self.get_finetuned_note();
         let c4_period = ph.note_to_period(note);
-        Some(ph.frequency(c4_period, 0.0, 0.0))
+        Some(ph.period_to_frequency(ph.adjust_period(c4_period, 0.0, 0.0, false)))
     }
 
     pub fn reset(&mut self) {

@@ -30,7 +30,6 @@ pub struct Channel<'a> {
     pub current: PatternSlot,
 
     period: f32,
-    period_out: Option<f32>, /* used for porta_semitone_slides */
 
     volume: f32,  /* Ideally between 0 (muted) and 1 (loudest) */
     panning: f32, /* Between 0 (left) and 1 (right); 0.5 is centered */
@@ -56,7 +55,7 @@ pub struct Channel<'a> {
     volume_slide_tick0: EffectVolumePanningSlide,
     vibrato: EffectVibratoTremolo,
 
-    porta_semitone_slides: bool,
+    semitone: bool,
 
     note_delay_param: u8,
     /// Where to restart a E6y loop
@@ -90,7 +89,6 @@ impl<'a> Channel<'a> {
             note: 0.0,
             current: PatternSlot::default(),
             period: 0.0,
-            period_out: None,
             instr: None,
             panning_slide: EffectVolumePanningSlide::default(),
             portamento_up: EffectPortamento::default(),
@@ -101,7 +99,7 @@ impl<'a> Channel<'a> {
             portamento_extrafine_down: EffectPortamento::default(),
             volume_slide: EffectVolumePanningSlide::default(),
             volume_slide_tick0: EffectVolumePanningSlide::default(),
-            porta_semitone_slides: false,
+            semitone: false,
             note_delay_param: 0,
             pattern_loop_origin: 0,
             pattern_loop_count: 0,
@@ -184,9 +182,8 @@ impl<'a> Channel<'a> {
                 self.panning = instr.panning;
 
                 if !contains(flags, TRIGGER_KEEP_PERIOD) {
-                    self.period_out = None;
                     self.period = self.period_helper.note_to_period(self.note);
-                    instr.update_frequency(self.period, 0.0, self.vibrato.value());
+                    instr.update_frequency(self.period, 0.0, self.vibrato.value(), self.semitone);
                 }
             }
             None => {}
@@ -211,28 +208,16 @@ impl<'a> Channel<'a> {
                 self.actual_volume[0] = volume * panning.sqrt();
                 self.actual_volume[1] = volume * (1.0 - panning).sqrt();
 
-                let period = if let Some(p) = self.period_out {
-                    p
+                let arp_note = if self.current.has_arpeggio() {
+                    self.arpeggio.value()
                 } else {
-                    self.period
+                    0.0
                 };
 
-                instr.update_frequency(period, self.arpeggio.value(), self.vibrato.value())
+                instr.update_frequency(self.period, arp_note, self.vibrato.value(), self.semitone)
             }
             None => {}
         }
-    }
-
-    fn semitone_slide(&mut self) {
-        let finetune = match &mut self.instr {
-            Some(instr) => instr.get_finetune(),
-            None => 0.0,
-        };
-        self.period_out = Some(self.period_helper.adjust_period_from_note(
-            self.period,
-            0.0,
-            finetune,
-        ));
     }
 
     fn tick_effects(&mut self, current_tick: u16) {
@@ -257,9 +242,6 @@ impl<'a> Channel<'a> {
                 /* 3xx: Tone portamento */
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
-                if self.porta_semitone_slides {
-                    self.semitone_slide();
-                }
             }
             4 if current_tick != 0 => {
                 /* 4xy: Vibrato */
@@ -269,9 +251,6 @@ impl<'a> Channel<'a> {
                 /* 5xy: Tone portamento + Volume slide */
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
-                if self.porta_semitone_slides {
-                    self.semitone_slide();
-                }
                 // now volume slide
                 self.volume += self.volume_slide.tick();
             }
@@ -407,9 +386,6 @@ impl<'a> Channel<'a> {
                 /* M - Tone portamento */
                 self.tone_portamento.tick();
                 self.period = self.tone_portamento.clamp(self.period);
-                if self.porta_semitone_slides {
-                    self.semitone_slide();
-                }
             }
             _ => {}
         }
@@ -520,7 +496,7 @@ impl<'a> Channel<'a> {
                     }
                     0x3 => {
                         /* E3y: Set glissando control */
-                        self.porta_semitone_slides = self.current.effect_parameter != 0;
+                        self.semitone = self.current.effect_parameter != 0;
                     }
                     0x4 => {
                         /* E4y: Set vibrato control */
