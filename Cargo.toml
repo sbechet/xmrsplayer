@@ -1,8 +1,8 @@
 [package]
 name = "xmrsplayer"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2021"
-description = "XMrsPlayer is a safe soundtracker music player"
+description = "XMrsPlayer is a safe no-std soundtracker music player"
 authors = ["Sebastien Bechet"]
 documentation = "https://docs.rs/xmrsplayer"
 repository = "https://codeberg.org/sbechet/xmrsplayer"
@@ -16,7 +16,7 @@ categories = ["multimedia::audio", "embedded", "no-std"]
 [dependencies]
 xmrs = { version = "0.6.1", default-features = false }
 clap = { version = "4.4", optional = true, features = ["cargo", "derive"] }
-rodio =  { version = "0.18", optional = true }
+rodio =  { version = "0.19", optional = true }
 console =  { version = "0.15", optional = true }
 cpal =  { version = "0.15", optional = true }
 num-traits = { version = "0.2.17",default-features = false, optional=true } # libm wrapper
