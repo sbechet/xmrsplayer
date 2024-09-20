@@ -73,7 +73,7 @@ pub struct Channel<'a> {
 
 impl<'a> Channel<'a> {
     pub fn new(module: &'a Module, rate: f32, historical: Option<HistoricalHelper>) -> Self {
-        let period_helper = PeriodHelper::new(module.frequency_type, historical.clone());
+        let period_helper = PeriodHelper::new(module.frequency_type, historical.is_some());
         Self {
             module,
             historical: historical.clone(),

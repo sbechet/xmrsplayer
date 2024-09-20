@@ -1,4 +1,3 @@
-use crate::historical_helper::HistoricalHelper;
 use xmrs::prelude::FrequencyType;
 
 #[cfg(feature = "libm")]
@@ -9,20 +8,20 @@ use micromath::F32Ext;
 #[derive(Clone)]
 pub struct PeriodHelper {
         pub freq_type: FrequencyType,
-        historical: Option<HistoricalHelper>,
+        historical: bool,
 }
 
 impl Default for PeriodHelper {
     fn default() -> Self {
         Self {
             freq_type: FrequencyType::LinearFrequencies,
-            historical: None,
+            historical: false,
         }
     }
 }
 
 impl PeriodHelper {
-    pub fn new(freq_type: FrequencyType, historical: Option<HistoricalHelper>) -> Self {
+    pub fn new(freq_type: FrequencyType, historical: bool) -> Self {
         Self {
             freq_type,
             historical,
@@ -108,24 +107,8 @@ impl PeriodHelper {
         }
     }
 
-    // old adjust period
-    pub fn adjust_period_orig(&self, period: f32, arp_note: f32, finetune: f32, _semitone: bool) -> f32 {
-        if arp_note == 0.0 {
-            match self.freq_type {
-                FrequencyType::LinearFrequencies => {
-                    period - 16.0 * finetune
-                }
-                FrequencyType::AmigaFrequencies => {
-                    let note = self.period_to_note(period);
-                    self.note_to_period(note) + 16.0 * finetune
-                }
-            }
-        } else {
-            self.adjust_period_from_note(period, arp_note, finetune)
-        }
-    }
-
     //-----------------------------------------------------
+
     // new adjust period to arpeggio and finetune delta
     pub fn adjust_period(&self, period: f32, arp_note: f32, finetune: f32, semitone: bool) -> f32 {
         let note_orig: f32 = self.period_to_note(period);
@@ -136,44 +119,15 @@ impl PeriodHelper {
             note_orig
         };
 
-        if let Some(_) = self.historical {
-            if arp_note != 0.0 {
-                // From C-0 (0) to B-7 (95) only
-                let mut note = note;
-                if note.ceil() >= 95.0 {
-                    note = 95.0;
-                }
-                self.note_to_period(note + arp_note + finetune)
-            } else {
-                self.note_to_period(note + arp_note + finetune)    
+        if self.historical && arp_note != 0.0 {
+            // From C-0 (0) to B-7 (95) only
+            let mut note = note;
+            if note.ceil() >= 95.0 {
+                note = 95.0;
             }
+            self.note_to_period(note + arp_note + finetune)
         } else {
             self.note_to_period(note + arp_note + finetune)
         }        
-    }
-
-    /*
-        without historical bug
-        finetune : [-1.0..1.0[
-    */
-    fn adjust_period_from_note_new(&self, period: f32, arp_note: f32, finetune: f32) -> f32 {
-        let orig_note: f32 = self.period_to_note(period).round();
-        self.note_to_period(orig_note + arp_note + finetune)
-    }
-
-    /// adjust period to nearest semitones
-    pub fn adjust_period_from_note(&self, period: f32, arp_note: f32, finetune: f32) -> f32 {
-        match &self.historical {
-            Some(_hhelper) => {
-                let finetune = (finetune * 127.0) as i16;
-                HistoricalHelper::adjust_period_from_note_historical(
-                    &self,
-                    period as u16,
-                    arp_note as u16,
-                    finetune,
-                )
-            }
-            None => self.adjust_period_from_note_new(period, arp_note, finetune),
-        }
     }
 }
