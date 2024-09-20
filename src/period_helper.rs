@@ -58,6 +58,13 @@ impl PeriodHelper {
         8363.0 * (2.0f32).powf((6.0 * 12.0 * 16.0 * 4.0 - period) / (12.0 * 16.0 * 4.0))
     }
 
+    /// return period
+    #[inline(always)]
+    fn linear_frequency_to_period(freq: f32) -> f32 {
+        (6.0 * 12.0 * 16.0 * 4.0) - (12.0 * 16.0 * 4.0) * (freq / 8363.0).log2()
+    }
+
+
     // ==== Amiga
 
     /// return period
@@ -84,6 +91,17 @@ impl PeriodHelper {
         }
     }
 
+    /// return period
+    #[inline(always)]
+    fn amiga_frequency_to_period(freq: f32) -> f32 {
+        if freq == 0.0 {
+            0.0
+        } else {
+            // 7159090.5 / (freq * 2.0) // NTSC
+            7093789.2 / (freq * 2.0) // PAL
+        }
+    }
+
     // ==== Generic (TODO: use a trait any day?)
 
     pub fn note_to_period(&self, note: f32) -> f32 {
@@ -106,6 +124,34 @@ impl PeriodHelper {
             FrequencyType::LinearFrequencies => Self::linear_period_to_frequency(period),
             FrequencyType::AmigaFrequencies => Self::amiga_period_to_frequency(period),
         }
+    }
+
+    pub fn frequency_to_period(&self, freq: f32) -> f32 {
+        match self.freq_type {
+            FrequencyType::LinearFrequencies => Self::linear_frequency_to_period(freq),
+            FrequencyType::AmigaFrequencies => Self::amiga_frequency_to_period(freq),
+        }
+    }
+
+    /// returns C-4 frequency from relative note and finetune
+    pub fn relative_note_to_c4freq(&self, relative_note: f32, finetune: f32) -> Option<f32> {
+        const NOTE_C4: f32 = 4.0 * 12.0;
+        const NOTE_B9: f32 = 10.0 * 12.0 - 1.0;
+
+        let note = NOTE_C4 + relative_note;
+        if note < 0.0 || note > NOTE_B9 {
+            return None;
+        }
+        let c4_period = self.note_to_period(note + finetune);
+        Some(self.period_to_frequency(c4_period))
+    }
+
+    /// return relative note including finetune
+    pub fn c4freq_to_relative_note(&self, freq: f32) -> f32 {
+        const NOTE_C4: f32 = 4.0 * 12.0;
+        let period = self.frequency_to_period(freq);
+        let note = self.period_to_note(period);
+        note - NOTE_C4
     }
 
     //-----------------------------------------------------

@@ -1,6 +1,5 @@
 /// A Sample State
 use crate::helper::*;
-use crate::period_helper::PeriodHelper;
 use xmrs::prelude::*;
 use xmrs::sample::Sample;
 
@@ -30,20 +29,6 @@ impl<'a> StateSample<'a> {
             ping: true,
             rate,
         }
-    }
-
-    /// returns C-4 rate
-    pub fn get_sample_c4_rate(&self, ph: &PeriodHelper) -> Option<f32> {
-        static NOTE_C4: f32 = 4.0 * 12.0;
-        static NOTE_B9: f32 = 10.0 * 12.0 - 1.0;
-
-        let note = NOTE_C4 + self.sample.relative_note as f32;
-        if note < 0.0 || note >= NOTE_B9 {
-            return None;
-        }
-        let note = NOTE_C4 + self.get_finetuned_note();
-        let c4_period = ph.note_to_period(note);
-        Some(ph.period_to_frequency(ph.adjust_period(c4_period, 0.0, 0.0, false)))
     }
 
     pub fn reset(&mut self) {

@@ -76,13 +76,6 @@ impl<'a> StateInstrDefault<'a> {
         self.envelope_volume.has_volume_envelope()
     }
 
-    pub fn get_sample_c4_rate(&self) -> Option<f32> {
-        match &self.state_sample {
-            Some(s) => s.get_sample_c4_rate(&self.period_helper),
-            None => None,
-        }
-    }
-
     pub fn replace_instr(&mut self, instr: &'a InstrDefault) {
         self.instr = instr;
     }
