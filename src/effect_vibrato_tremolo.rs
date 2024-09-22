@@ -1,4 +1,4 @@
-use xmrs::module::FrequencyType;
+use xmrs::period_helper::FrequencyType;
 
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use xmrs::amiga::amiga_module::AmigaModule;
 use xmrs::prelude::*;
+use xmrs::s3m::*;
 use xmrs::xm::xmmodule::XmModule;
 
 mod bufferedsource;
@@ -99,6 +100,31 @@ fn main() -> Result<(), std::io::Error> {
                             drop(contents); // cleanup memory
                             let module = amiga.to_module();
                             drop(amiga);
+                            println!("Playing {} !", module.name);
+                            let module = Box::new(module);
+                            let module_ref: &'static Module = Box::leak(module);
+                            rodio_play(
+                                module_ref,
+                                cli.amplification,
+                                cli.position,
+                                cli.loops,
+                                cli.debug,
+                                cli.ch,
+                                cli.speed,
+                                false,
+                            );
+                        }
+                        Err(e) => {
+                            println!("{:?}", e);
+                        }
+                    }
+                }
+                Some(extension) if extension == "s3m" || extension == "S3M" => {
+                    match s3m_module::S3mModule::load(&contents) {
+                        Ok(s3m) => {
+                            drop(contents); // cleanup memory
+                            let module = s3m.to_module();
+                            drop(s3m);
                             println!("Playing {} !", module.name);
                             let module = Box::new(module);
                             let module_ref: &'static Module = Box::leak(module);

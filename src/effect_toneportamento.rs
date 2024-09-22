@@ -1,4 +1,4 @@
-use xmrs::module::FrequencyType;
+use xmrs::period_helper::FrequencyType;
 
 use crate::effect::*;
 use crate::helper::*;

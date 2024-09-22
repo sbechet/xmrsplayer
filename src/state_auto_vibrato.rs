@@ -1,5 +1,6 @@
 /// An Instrument Vibrato State
-use xmrs::{instr_vibrato::InstrVibrato, module::FrequencyType};
+use xmrs::{instr_vibrato::InstrVibrato};
+use xmrs::period_helper::FrequencyType;
 
 use crate::period_helper::PeriodHelper;
 
