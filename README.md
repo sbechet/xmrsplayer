@@ -4,9 +4,9 @@ XMrsPlayer is a library to play real music
 
 The code was initially a simple port of libxm. It's very different today, with rustification as complete as possible and better accuracy in the effects.
 
-**Amiga Module** and **XM** player.
+**Amiga Module**, **S3M** and **XM** player.
 
-Help welcome.
+S3M is a work in progress: help welcome.
 
 ## About no_std
 
