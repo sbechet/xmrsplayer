@@ -1,8 +1,6 @@
 /// An Instrument Vibrato State
-use xmrs::{instr_vibrato::InstrVibrato};
-use xmrs::period_helper::FrequencyType;
-
-use crate::period_helper::PeriodHelper;
+use xmrs::instr_vibrato::InstrVibrato;
+use xmrs::period_helper::{FrequencyType, PeriodHelper};
 
 #[derive(Clone)]
 pub struct StateAutoVibrato<'a> {

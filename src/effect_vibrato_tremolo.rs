@@ -1,4 +1,4 @@
-use xmrs::period_helper::FrequencyType;
+use xmrs::period_helper::{FrequencyType, PeriodHelper};
 
 #[cfg(feature = "micromath")]
 use micromath::F32Ext;
@@ -6,7 +6,6 @@ use micromath::F32Ext;
 use num_traits::float::Float;
 
 use crate::effect::*;
-use crate::period_helper::PeriodHelper;
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct VibratoTremolo {

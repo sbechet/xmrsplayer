@@ -11,7 +11,6 @@ use crate::effect_toneportamento::EffectTonePortamento;
 use crate::effect_vibrato_tremolo::EffectVibratoTremolo;
 use crate::effect_volume_panning_slide::EffectVolumePanningSlide;
 use crate::historical_helper::HistoricalHelper;
-use crate::period_helper::PeriodHelper;
 use crate::triggerkeep::*;
 
 use crate::helper::*;

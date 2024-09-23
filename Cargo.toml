@@ -1,6 +1,6 @@
 [package]
 name = "xmrsplayer"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2021"
 description = "XMrsPlayer is a safe no-std soundtracker music player"
 authors = ["Sebastien Bechet"]
@@ -14,7 +14,7 @@ keywords = ["xm", "module", "mod", "s3m", "soundtracker"]
 categories = ["multimedia::audio", "embedded", "no-std"]
 
 [dependencies]
-xmrs = { version = "0.7.0", default-features = false }
+xmrs = { path = "0.7.2", default-features = false }
 clap = { version = "4.4", optional = true, features = ["cargo", "derive"] }
 rodio =  { version = "0.19", optional = true }
 console =  { version = "0.15", optional = true }
@@ -38,3 +38,8 @@ strip = true
 lto = true
 codegen-units = 1
 panic = "abort"
+
+[[bin]]
+name = "xmrsplayer"
+path = "examples/rodio_player.rs"
+required-features = [ "std","demo" ]

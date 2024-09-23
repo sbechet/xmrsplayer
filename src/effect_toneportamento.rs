@@ -1,8 +1,7 @@
-use xmrs::period_helper::FrequencyType;
+use xmrs::period_helper::{FrequencyType, PeriodHelper};
 
 use crate::effect::*;
 use crate::helper::*;
-use crate::period_helper::PeriodHelper;
 use core::default::Default;
 
 #[derive(Clone, Default)]

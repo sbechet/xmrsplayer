@@ -1,8 +1,12 @@
+#[cfg(feature = "micromath")]
+use micromath::F32Ext;
+#[cfg(feature = "libm")]
+use num_traits::float::Float;
+
 use core::ops::Deref;
 
 /// An InstrDefault State
 use crate::helper::*;
-use crate::period_helper::PeriodHelper;
 use crate::{
     state_auto_vibrato::StateAutoVibrato, state_envelope::StateEnvelope, state_sample::StateSample,
 };
