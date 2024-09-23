@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use xmrs::amiga::amiga_module::AmigaModule;
 use xmrs::prelude::*;
-use xmrs::s3m::*;
+use xmrs::s3m::s3m_module::S3mModule;
 use xmrs::xm::xmmodule::XmModule;
 
 mod bufferedsource;
@@ -20,7 +20,7 @@ struct Cli {
     #[arg(
         short = 'f',
         long,
-        default_value = "coretex_-_home.xm", // https://modarchive.org/index.php?request=view_by_moduleid&query=159594
+        required = true,
         value_name = "filename"
     )]
     filename: Option<String>,
@@ -120,7 +120,7 @@ fn main() -> Result<(), std::io::Error> {
                     }
                 }
                 Some(extension) if extension == "s3m" || extension == "S3M" => {
-                    match s3m_module::S3mModule::load(&contents) {
+                    match S3mModule::load(&contents) {
                         Ok(s3m) => {
                             drop(contents); // cleanup memory
                             let module = s3m.to_module();
