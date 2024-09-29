@@ -301,7 +301,7 @@ impl<'a> Channel<'a> {
                             self.tick0_effects();
 
                             /* Special KeyOff cases */
-                            if let Note::KeyOff = self.current.note {
+                            if self.current.note.is_keyoff() {
                                 if self.current.instrument == 0 {
                                     if let Some(i) = &mut self.instr {
                                         i.volume_reset();
@@ -561,24 +561,20 @@ impl<'a> Channel<'a> {
                     0xD => {
                         /* ED0: Note with no delay */
                         if self.current.effect_parameter & 0xF0 == 0 {
-                            match self.current.note {
-                                Note::None => {
+                            if self.current.note.is_none() {
+                                self.trigger_note(
+                                    TRIGGER_KEEP_SAMPLE_POSITION
+                                        | TRIGGER_KEEP_VOLUME
+                                        | TRIGGER_KEEP_PERIOD,
+                                );
+                            } else if self.current.note.is_keyoff() {
+                                if self.current.instrument == 0 {
+                                    self.key_off(0);
+                                } else {
                                     self.trigger_note(
-                                        TRIGGER_KEEP_SAMPLE_POSITION
-                                            | TRIGGER_KEEP_VOLUME
-                                            | TRIGGER_KEEP_PERIOD,
+                                        TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
                                     );
                                 }
-                                Note::KeyOff => {
-                                    if self.current.instrument == 0 {
-                                        self.key_off(0);
-                                    } else {
-                                        self.trigger_note(
-                                            TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
-                                        );
-                                    }
-                                }
-                                _ => {}
                             }
                         }
                     }
@@ -740,7 +736,7 @@ impl<'a> Channel<'a> {
             } else if self.current.has_tone_portamento() {
                 self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
                 return self.tick0_change_instr(true);
-            } else if let Note::None = self.current.note {
+            } else if self.current.note.is_none() {
                 /* Ghost instrument, trigger note */
                 if self.current.has_volume_slide() {
                     self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_PERIOD);
@@ -790,7 +786,7 @@ impl<'a> Channel<'a> {
                 }
                 None => self.cut_note(),
             }
-        } else if let Note::KeyOff = self.current.note {
+        } else if self.current.note.is_keyoff() {
             if self.current.instrument == 0 || new_instr {
                 self.key_off(0);
             } else {
