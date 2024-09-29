@@ -11,6 +11,7 @@ pub struct XmrsPlayer<'a> {
 
     tempo: u16,
     bpm: u16,
+    /// Global volume: 0.0 to 1.0
     pub global_volume: f32,
     global_volume_slide_param: u8,
     /// Global amplification (default 1/4)
@@ -18,9 +19,10 @@ pub struct XmrsPlayer<'a> {
     current_table_index: u16,
     current_row: u8,
     current_tick: u16,
-    pub remaining_samples_in_tick: f32,
+    /// sample rate / (BPM * 0.4)
+    remaining_samples_in_tick: f32,
     /// +1 for a (left,right) sample
-    pub generated_samples: u64,
+    generated_samples: u64,
 
     position_jump: bool,
     pattern_break: bool,
@@ -33,8 +35,8 @@ pub struct XmrsPlayer<'a> {
     pub channel: Vec<Channel<'a>>,
 
     row_loop_count: Vec<Vec<u8>>,
-    pub loop_count: u8,
-    pub max_loop_count: u8,
+    loop_count: u8,
+    max_loop_count: u8,
 
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
@@ -361,7 +363,7 @@ impl<'a> XmrsPlayer<'a> {
         }
     }
 
-    pub fn step(&mut self) {
+    fn step(&mut self) {
         if self.remaining_samples_in_tick <= 0.0 {
             if self.current_tick == 0 {
                 self.tick0();

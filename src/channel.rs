@@ -58,20 +58,20 @@ pub struct Channel<'a> {
 
     note_delay_param: u8,
     /// Where to restart a E6y loop
-    pub pattern_loop_origin: u8,
+    pub(crate) pattern_loop_origin: u8,
     /// How many loop passes have been done
-    pub pattern_loop_count: u8,
+    pub(crate) pattern_loop_count: u8,
 
     tremor_param: u8,
     tremor_on: bool,
 
     pub muted: bool,
 
-    pub actual_volume: [f32; 2],
+    actual_volume: [f32; 2],
 }
 
 impl<'a> Channel<'a> {
-    pub fn new(module: &'a Module, rate: f32, historical: Option<HistoricalHelper>) -> Self {
+    pub(crate) fn new(module: &'a Module, rate: f32, historical: Option<HistoricalHelper>) -> Self {
         let period_helper = PeriodHelper::new(module.frequency_type, historical.is_some());
         Self {
             module,
@@ -118,7 +118,7 @@ impl<'a> Channel<'a> {
         self.muted || midi_mute
     }
 
-    pub fn cut_note(&mut self) {
+    fn cut_note(&mut self) {
         /* NB: this is not the same as Key Off */
         self.volume = 0.0;
     }
@@ -157,7 +157,7 @@ impl<'a> Channel<'a> {
         }
     }
 
-    pub fn trigger_note(&mut self, flags: TriggerKeep) {
+    pub(crate) fn trigger_note(&mut self, flags: TriggerKeep) {
         self.tremor_on = false;
 
         match &mut self.instr {
@@ -189,7 +189,7 @@ impl<'a> Channel<'a> {
         }
     }
 
-    pub fn tickn_update_instr(&mut self) {
+    fn tickn_update_instr(&mut self) {
         match &mut self.instr {
             Some(instr) => {
                 let panning: f32 = self.panning
@@ -390,7 +390,7 @@ impl<'a> Channel<'a> {
         }
     }
 
-    pub fn tick(&mut self, current_tick: u16) {
+    pub(crate) fn tick(&mut self, current_tick: u16) {
         match &mut self.instr {
             Some(instr) => {
                 instr.tick();
@@ -813,7 +813,7 @@ impl<'a> Channel<'a> {
         self.tick0_load_note(new_instr);
     }
 
-    pub fn tick0(&mut self, pattern_slot: &PatternSlot) {
+    pub(crate) fn tick0(&mut self, pattern_slot: &PatternSlot) {
         self.current = pattern_slot.clone();
 
         if !self.current.has_note_delay()

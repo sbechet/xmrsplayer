@@ -17,12 +17,7 @@ const SAMPLE_RATE: u32 = 48000;
 #[derive(Parser)]
 struct Cli {
     /// Choose XM or XmRs File
-    #[arg(
-        short = 'f',
-        long,
-        required = true,
-        value_name = "filename"
-    )]
+    #[arg(short = 'f', long, required = true, value_name = "filename")]
     filename: Option<String>,
 
     /// Choose amplification
