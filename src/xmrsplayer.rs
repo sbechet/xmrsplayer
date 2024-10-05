@@ -42,6 +42,8 @@ pub struct XmrsPlayer<'a> {
     right_sample: Option<f32>,
     debug: bool,
     hhelper: Option<HistoricalHelper>,
+
+    pause: bool,
 }
 
 impl<'a> XmrsPlayer<'a> {
@@ -77,6 +79,7 @@ impl<'a> XmrsPlayer<'a> {
             max_loop_count: 0,
             right_sample: None,
             debug: false,
+            pause: false,
         };
 
         player.channel = vec![Channel::new(module, sample_rate, hhelper.clone()); num_channels];
@@ -165,6 +168,10 @@ impl<'a> XmrsPlayer<'a> {
 
     pub fn get_current_row(&self) -> usize {
         self.current_row as usize
+    }
+
+    pub fn pause(&mut self, pause: bool) {
+        self.pause = pause;
     }
 
     fn post_pattern_change(&mut self) {
@@ -388,6 +395,10 @@ impl<'a> XmrsPlayer<'a> {
 
     // return (left, right) samples
     fn sample(&mut self) -> Option<(f32, f32)> {
+        if self.pause {
+            return Some((0.0, 0.0));
+        }
+
         self.step();
 
         if self.max_loop_count > 0 && self.loop_count >= self.max_loop_count {
