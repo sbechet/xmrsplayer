@@ -13,8 +13,6 @@ use xmrsplayer::prelude::*;
 #[cfg(feature = "sid")]
 use xmrs::sid::sid_module::SidModule;
 
-const SAMPLE_RATE: u32 = 44100;
-
 #[derive(Parser)]
 struct Cli {
     /// Choose XM or XmRs File
@@ -57,9 +55,9 @@ struct Cli {
 
 #[cfg(feature = "sid")]
 fn sid_test_player(cli: &Cli) {
-    let sidmodule = SidModule::get_sid_commando();
+    // let sidmodule = SidModule::get_sid_commando();
     // let sidmodule = SidModule::get_sid_crazy_comets();
-    // let sidmodule = SidModule::get_sid_monty_on_the_run();
+    let sidmodule = SidModule::get_sid_monty_on_the_run();
     // let sidmodule = SidModule::get_sid_last_v8();
     // let sidmodule = SidModule::get_sid_thing_on_a_spring();
     // let sidmodule = SidModule::get_sid_zoid();
@@ -83,6 +81,11 @@ fn sid_test_player(cli: &Cli) {
 fn main() -> Result<(), std::io::Error> {
     let cli = Cli::parse();
 
+    // Term::stdout().clear_screen().unwrap();
+    println!("--===~ XmRs Player Example ~===--");
+    println!("(c) 2023-2024 Sébastien Béchet\n");
+    println!("Because demo scene can't die :)\n");
+
     // Ugly Hack just for fun
     #[cfg(feature = "sid")]
     if cli.sid_test_player {
@@ -92,10 +95,6 @@ fn main() -> Result<(), std::io::Error> {
 
     match cli.filename {
         Some(filename) => {
-            // Term::stdout().clear_screen().unwrap();
-            println!("--===~ XmRs Player Example ~===--");
-            println!("(c) 2023-2024 Sébastien Béchet\n");
-            println!("Because demo scene can't die :)\n");
             println!("opening {}", filename);
             let contents = std::fs::read(filename.trim())?;
             match filename.split('.').last() {
@@ -195,6 +194,17 @@ fn cpal_play(
     speed: u16,
     historical: bool,
 ) {
+
+    let host = cpal::default_host();
+    let device = host
+        .default_output_device()
+        .expect("no output device available");
+
+    let config = device
+        .default_output_config()
+        .expect("failed to get default output config");
+    let sample_rate = config.sample_rate();
+
     // try to detect FT2 to play historical bugs
     let is_ft2 = historical
         || module.comment == "FastTracker v2.00 (1.02)"
@@ -203,7 +213,7 @@ fn cpal_play(
 
     let player = Arc::new(Mutex::new(XmrsPlayer::new(
         module,
-        SAMPLE_RATE as f32,
+        sample_rate.0 as f32,
         is_ft2,
     )));
 
@@ -225,17 +235,6 @@ fn cpal_play(
         player_lock.goto(position, 0, speed);
     }
 
-    let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .expect("no output device available");
-
-    let config = device
-        .default_output_config()
-        .expect("failed to get default output config");
-    let sample_rate = config.sample_rate();
-
-    println!("cpal sample rate: {:?}", sample_rate);
 
     let player_clone = Arc::clone(&player);
     let stream = device
