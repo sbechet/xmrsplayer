@@ -10,6 +10,9 @@ use xmrs::xm::xmmodule::XmModule;
 
 use xmrsplayer::prelude::*;
 
+#[cfg(feature = "sid")]
+use xmrs::sid::sid_module::SidModule;
+
 const SAMPLE_RATE: u32 = 44100;
 
 #[derive(Parser)]
@@ -32,7 +35,7 @@ struct Cli {
 
     /// How many loop (default: infinity)
     #[arg(short = 'l', long, default_value = "0")]
-    loops: u8,
+    loops: usize,
 
     /// Force historical fT2 replay (default: autodetect)
     #[arg(short = 't', long, default_value = "false")]
@@ -45,10 +48,47 @@ struct Cli {
     /// Force speed
     #[arg(short = 's', long, default_value = "0")]
     speed: u16,
+
+    /// Test SID player as a Proof of Concept
+    #[cfg(feature = "sid")]
+    #[arg(short = 'z', long, default_value = "false")]
+    sid_test_player: bool,
+}
+
+#[cfg(feature = "sid")]
+fn sid_test_player(cli: &Cli) {
+    let sidmodule = SidModule::get_sid_commando();
+    // let sidmodule = SidModule::get_sid_crazy_comets();
+    // let sidmodule = SidModule::get_sid_monty_on_the_run();
+    // let sidmodule = SidModule::get_sid_last_v8();
+    // let sidmodule = SidModule::get_sid_thing_on_a_spring();
+    // let sidmodule = SidModule::get_sid_zoid();
+    let modules = sidmodule.to_modules(false);
+
+    let leaked_modules: &'static [Module] = Box::leak(modules.into_boxed_slice());
+    let module_ref: &'static Module = &leaked_modules[0];
+
+    cpal_play(
+        module_ref,
+        cli.amplification,
+        cli.position,
+        cli.loops,
+        cli.debug,
+        cli.ch,
+        cli.speed,
+        false,
+    );
 }
 
 fn main() -> Result<(), std::io::Error> {
     let cli = Cli::parse();
+
+    // Ugly Hack just for fun
+    #[cfg(feature = "sid")]
+    if cli.sid_test_player {
+        sid_test_player(&cli);
+        return Ok(());
+    }
 
     match cli.filename {
         Some(filename) => {
@@ -145,7 +185,16 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn cpal_play(module: &'static Module, amplification: f32, position: usize, loops: u8, debug: bool, ch: u8, speed: u16, historical: bool) {
+fn cpal_play(
+    module: &'static Module,
+    amplification: f32,
+    position: usize,
+    loops: usize,
+    debug: bool,
+    ch: u8,
+    speed: u16,
+    historical: bool,
+) {
     // try to detect FT2 to play historical bugs
     let is_ft2 = historical
         || module.comment == "FastTracker v2.00 (1.02)"
@@ -176,7 +225,34 @@ fn cpal_play(module: &'static Module, amplification: f32, position: usize, loops
         player_lock.goto(position, 0, speed);
     }
 
-    start_audio_player(Arc::clone(&player)).expect("failed to start player");
+    let host = cpal::default_host();
+    let device = host
+        .default_output_device()
+        .expect("no output device available");
+
+    let config = device
+        .default_output_config()
+        .expect("failed to get default output config");
+    let sample_rate = config.sample_rate();
+
+    println!("cpal sample rate: {:?}", sample_rate);
+
+    let player_clone = Arc::clone(&player);
+    let stream = device
+        .build_output_stream(
+            &config.config(),
+            move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                let mut player_lock = player_clone.lock().unwrap();
+                for sample in data.iter_mut() {
+                    *sample = player_lock.next().unwrap_or(0.0);
+                }
+            },
+            |_: cpal::StreamError| {},
+            None,
+        )
+        .expect("failed to build output stream");
+
+    stream.play().expect("failed to play stream");
 
     let stdout = Term::stdout();
     println!(
@@ -230,40 +306,4 @@ fn cpal_play(module: &'static Module, amplification: f32, position: usize, loops
             }
         }
     }
-}
-
-fn start_audio_player(player: Arc<Mutex<XmrsPlayer<'static>>>) -> Result<(), cpal::StreamError> {
-    let host = cpal::default_host();
-    let device = host
-        .default_output_device()
-        .expect("no output device available");
-
-    let config = device
-        .default_output_config()
-        .expect("failed to get default output config");
-    let sample_rate = config.sample_rate();
-
-    println!("cpal sample rate: {:?}", sample_rate);
-
-    std::thread::spawn(move || {
-        let player = Arc::clone(&player);
-        let stream = device
-            .build_output_stream(
-                &config.config(),
-                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let mut player_lock = player.lock().unwrap();
-                    for sample in data.iter_mut() {
-                        *sample = player_lock.next().unwrap_or(0.0);
-                    }
-                },
-                |_: cpal::StreamError| {},
-                None,
-            )
-            .expect("failed to build output stream");
-
-        stream.play().expect("failed to play stream");
-        std::thread::sleep(std::time::Duration::from_secs_f32(60.0));
-    });
-
-    Ok(())
 }

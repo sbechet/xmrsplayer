@@ -58,9 +58,9 @@ pub struct Channel<'a> {
 
     note_delay_param: u8,
     /// Where to restart a E6y loop
-    pub(crate) pattern_loop_origin: u8,
+    pub(crate) pattern_loop_origin: usize,
     /// How many loop passes have been done
-    pub(crate) pattern_loop_count: u8,
+    pub(crate) pattern_loop_count: usize,
 
     tremor_param: u8,
     tremor_on: bool,
@@ -571,9 +571,7 @@ impl<'a> Channel<'a> {
                                 if self.current.instrument == 0 {
                                     self.key_off(0);
                                 } else {
-                                    self.trigger_note(
-                                        TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE,
-                                    );
+                                    self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
                                 }
                             }
                         }

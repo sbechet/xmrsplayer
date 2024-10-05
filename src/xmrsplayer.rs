@@ -16,8 +16,8 @@ pub struct XmrsPlayer<'a> {
     global_volume_slide_param: u8,
     /// Global amplification (default 1/4)
     pub amplification: f32,
-    current_table_index: u16,
-    current_row: u8,
+    current_table_index: usize,
+    current_row: usize,
     current_tick: u16,
     /// sample rate / (BPM * 0.4)
     remaining_samples_in_tick: f32,
@@ -26,17 +26,17 @@ pub struct XmrsPlayer<'a> {
 
     position_jump: bool,
     pattern_break: bool,
-    jump_dest: u16,
-    jump_row: u8,
+    jump_dest: usize,
+    jump_row: usize,
 
     /// Extra ticks to be played before going to the next row - Used for EEy effect
     extra_ticks: u16,
 
     pub channel: Vec<Channel<'a>>,
 
-    row_loop_count: Vec<Vec<u8>>,
-    loop_count: u8,
-    max_loop_count: u8,
+    row_loop_count: Vec<Vec<usize>>,
+    loop_count: usize,
+    max_loop_count: usize,
 
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
@@ -103,11 +103,11 @@ impl<'a> XmrsPlayer<'a> {
         }
     }
 
-    pub fn set_max_loop_count(&mut self, max_loop_count: u8) {
+    pub fn set_max_loop_count(&mut self, max_loop_count: usize) {
         self.max_loop_count = max_loop_count;
     }
 
-    pub fn get_loop_count(&self) -> u8 {
+    pub fn get_loop_count(&self) -> usize {
         self.loop_count
     }
 
@@ -123,11 +123,11 @@ impl<'a> XmrsPlayer<'a> {
     /// default tempo if speed == 0
     pub fn goto(&mut self, table_position: usize, row: usize, speed: u16) -> bool {
         if table_position < self.module.get_song_length() {
-            let num_row = self.module.pattern_order[table_position] as usize;
+            let num_row = self.module.pattern_order[table_position];
             if row < self.module.get_num_rows(num_row) {
                 // Create a position jump
-                self.jump_dest = table_position as u16;
-                self.jump_row = row as u8;
+                self.jump_dest = table_position;
+                self.jump_row = row;
                 self.position_jump = true;
 
                 // Cleanup self
@@ -159,15 +159,15 @@ impl<'a> XmrsPlayer<'a> {
     }
 
     pub fn get_current_pattern(&self) -> usize {
-        self.module.pattern_order[self.current_table_index as usize] as usize
+        self.module.pattern_order[self.current_table_index]
     }
 
     pub fn get_current_table_index(&self) -> usize {
-        self.current_table_index as usize
+        self.current_table_index
     }
 
     pub fn get_current_row(&self) -> usize {
-        self.current_row as usize
+        self.current_row
     }
 
     pub fn pause(&mut self, pause: bool) {
@@ -176,16 +176,15 @@ impl<'a> XmrsPlayer<'a> {
 
     fn post_pattern_change(&mut self) {
         /* Loop if necessary */
-        if self.current_table_index as usize >= self.module.pattern_order.len() {
+        if self.current_table_index >= self.module.pattern_order.len() {
             self.current_table_index = self.module.restart_position;
         }
 
         #[cfg(feature = "std")]
         if self.debug {
             println!(
-                "pattern_order[0x{:02x}] = 0x{:02x}",
-                self.current_table_index,
-                self.module.pattern_order[self.current_table_index as usize]
+                "pattern_order[0x{:03x}] = 0x{:03x}",
+                self.current_table_index, self.module.pattern_order[self.current_table_index]
             );
         }
     }
@@ -199,7 +198,7 @@ impl<'a> XmrsPlayer<'a> {
                 /* Bxx: Position jump */
                 if (pattern_slot.effect_parameter as usize) < self.module.pattern_order.len() {
                     self.position_jump = true;
-                    self.jump_dest = pattern_slot.effect_parameter as u16;
+                    self.jump_dest = pattern_slot.effect_parameter as usize;
                     self.jump_row = 0;
                 }
             }
@@ -207,8 +206,8 @@ impl<'a> XmrsPlayer<'a> {
                 /* Dxx: Pattern break */
                 /* Jump after playing this line */
                 self.pattern_break = true;
-                self.jump_row = (pattern_slot.effect_parameter >> 4) * 10
-                    + (pattern_slot.effect_parameter & 0x0F);
+                self.jump_row = (pattern_slot.effect_parameter >> 4) as usize * 10
+                    + (pattern_slot.effect_parameter & 0x0F) as usize;
             }
             0xE => {
                 /* EXy: Extended command */
@@ -216,7 +215,9 @@ impl<'a> XmrsPlayer<'a> {
                     0x6 => {
                         /* E6y: Pattern loop */
                         if pattern_slot.effect_parameter & 0x0F != 0 {
-                            if (pattern_slot.effect_parameter & 0x0F) == ch.pattern_loop_count {
+                            if (pattern_slot.effect_parameter & 0x0F) as usize
+                                == ch.pattern_loop_count
+                            {
                                 /* Loop is over */
                                 ch.pattern_loop_count = 0;
                             } else {
@@ -285,23 +286,22 @@ impl<'a> XmrsPlayer<'a> {
             self.post_pattern_change();
         }
 
-        let pat_idx_temp: usize =
-            self.module.pattern_order[self.current_table_index as usize] as usize;
+        let pat_idx_temp = self.module.pattern_order[self.current_table_index];
         let pat_idx = if pat_idx_temp < self.module.pattern.len() {
             pat_idx_temp
         } else {
             // empty pattern, returning to zero
             self.current_table_index = 0;
-            self.module.pattern_order[self.current_table_index as usize] as usize
+            self.module.pattern_order[self.current_table_index]
         };
 
         let num_channels = self.module.get_num_channels();
         let mut in_a_loop = false;
 
-        let current_row = self.current_row as usize;
+        let current_row = self.current_row;
         #[cfg(feature = "std")]
         if self.debug {
-            print!("{:02X} ", current_row);
+            print!("{:03X} ", current_row);
         }
         for ch_index in 0..num_channels {
             let ps = &self.module.pattern[pat_idx][current_row][ch_index];
@@ -322,12 +322,11 @@ impl<'a> XmrsPlayer<'a> {
 
         if !in_a_loop {
             /* No E6y loop is in effect (or we are in the first pass) */
-            self.loop_count = self.row_loop_count[self.current_table_index as usize]
-                [self.current_row as usize] as u8;
-            self.row_loop_count[self.current_table_index as usize][self.current_row as usize] += 1;
+            self.loop_count = self.row_loop_count[self.current_table_index][self.current_row];
+            self.row_loop_count[self.current_table_index][self.current_row] += 1;
         }
 
-        self.current_row = self.current_row.wrapping_add(1); /* Since this is an u8, this line can
+        self.current_row = self.current_row.wrapping_add(1); /* Maybe this can be an u8 on old computers, this line can
                                                               * increment from 255 to 0, in which case it
                                                               * is still necessary to go the next
                                                               * pattern. */
