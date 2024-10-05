@@ -178,7 +178,7 @@ impl<'a> StateInstrDefault<'a> {
                 let period_adjusted = self.period_helper.adjust_period(
                     period,
                     arp_note,
-                    finetune + self.state_vibrato.period_offset,
+                    finetune + self.state_vibrato.current_modulation,
                     semitone,
                 );
                 s.set_step(self.period_helper.period_to_frequency(period_adjusted))

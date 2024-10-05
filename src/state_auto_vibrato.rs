@@ -6,10 +6,8 @@ use xmrs::period_helper::{FrequencyType, PeriodHelper};
 pub struct StateAutoVibrato<'a> {
     vibrato: &'a InstrVibrato,
     period_helper: PeriodHelper,
-    sweep: f32,
-    amp: f32,
-    pos: f32,
-    pub period_offset: f32,
+    phase: f32,
+    pub current_modulation: f32,
 }
 
 impl<'a> StateAutoVibrato<'a> {
@@ -17,10 +15,8 @@ impl<'a> StateAutoVibrato<'a> {
         let mut sv = Self {
             vibrato,
             period_helper,
-            sweep: 0.0,
-            amp: 0.0,
-            pos: 0.0,
-            period_offset: 0.0,
+            phase: 0.0,
+            current_modulation: 0.0,
         };
 
         sv.reset();
@@ -29,44 +25,28 @@ impl<'a> StateAutoVibrato<'a> {
     }
 
     pub fn reset(&mut self) {
-        self.pos = 0.0;
-        self.period_offset = 0.0;
         self.retrig();
     }
 
     pub fn retrig(&mut self) {
-        if self.vibrato.depth > 0.0 {
-            self.pos = 0.0;
-            if self.vibrato.sweep > 0.0 {
-                self.amp = 0.0;
-                self.sweep = self.vibrato.depth / (256.0 * self.vibrato.sweep);
-            } else {
-                self.amp = self.vibrato.depth;
-                self.sweep = 0.0;
-            }
-        }
+        self.phase = 0.0;
+        self.current_modulation = 0.0;
     }
 
-    pub fn tick(&mut self, sustained: bool) {
-        if self.vibrato.depth > 0.0 {
-            self.amp = if sustained {
-                if self.amp + self.sweep > self.vibrato.depth {
-                    self.sweep = 0.0;
-                    self.vibrato.depth
-                } else {
-                    self.amp + self.sweep
-                }
-            } else {
-                self.amp
-            };
-            self.pos += self.vibrato.speed;
-            self.period_offset = self.amp * self.vibrato.waveform.value(self.pos);
-            self.period_offset /=
-                if let FrequencyType::LinearFrequencies = self.period_helper.freq_type {
-                    1.0
-                } else {
-                    4.0
-                }
+    pub fn tick(&mut self, sustain: bool) {
+        self.phase += self.vibrato.speed;
+
+        let current_depth = if self.phase < self.vibrato.sweep && !sustain {
+            // sweep can't be zero
+            (self.phase / self.vibrato.sweep) * self.vibrato.depth as f32
+        } else {
+            self.vibrato.depth
+        };
+
+        self.current_modulation = current_depth * self.vibrato.waveform.value(self.phase);
+
+        if let FrequencyType::AmigaFrequencies = self.period_helper.freq_type {
+            self.current_modulation /= 4.0;
         }
     }
 }
