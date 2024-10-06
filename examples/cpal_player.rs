@@ -61,6 +61,15 @@ fn sid_test_player(cli: &Cli) {
     // let sidmodule = SidModule::get_sid_last_v8();
     // let sidmodule = SidModule::get_sid_thing_on_a_spring();
     // let sidmodule = SidModule::get_sid_zoid();
+    // let sidmodule = SidModule::get_sid_ace_2();
+    // let sidmodule = SidModule::get_sid_delta();
+    // let sidmodule = SidModule::get_sid_human_race();
+    // let sidmodule = SidModule::get_sid_international_karate();
+    // let sidmodule = SidModule::get_sid_lightforce();
+    // let sidmodule = SidModule::get_sid_sanxion_song_1();
+    // let sidmodule = SidModule::get_sid_sanxion_song_2();
+    // let sidmodule = SidModule::get_sid_spellbound();
+
     let modules = sidmodule.to_modules(false);
 
     let leaked_modules: &'static [Module] = Box::leak(modules.into_boxed_slice());
