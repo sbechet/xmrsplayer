@@ -30,57 +30,54 @@ impl<'a> StateEnvelope<'a> {
         self.counter = 0;
     }
 
-    pub fn tick(&mut self, sustained: bool) -> f32 {
+    pub fn tick(&mut self, sustained: bool) {
         let num_points = self.env.point.len();
-        match num_points {
-            0 => self.value = 0.0,
-            1 => {
-                self.value = self.env.point[0].value as f32 / 64.0;
-                clamp_up(&mut self.value);
-            }
-            _ => {
-                if self.env.loop_enabled {
-                    let loop_start: u16 = self.env.point[self.env.loop_start_point as usize].frame;
-                    let loop_end: u16 = self.env.point[self.env.loop_end_point as usize].frame;
-                    let loop_length: u16 = loop_end - loop_start;
 
-                    if self.counter >= loop_end {
-                        self.counter -= loop_length;
-                    }
-                }
+        if num_points == 0 {
+            self.value = 0.0;
+            return;
+        }
 
-                for i in 1..self.env.point.len() {
-                    if self.counter == self.env.point[i - 1].frame {
-                        self.value = self.env.point[i - 1].value as f32 / 64.0;
-                        break;
-                    }
+        if num_points == 1 {
+            self.value = self.env.point[0].value;
+            clamp_up(&mut self.value);
+            return;
+        }
 
-                    if self.counter <= self.env.point[i].frame {
-                        self.value = EnvelopePoint::lerp(
-                            &self.env.point[i - 1],
-                            &self.env.point[i],
-                            self.counter,
-                        ) / 64.0;
-                        break;
-                    }
-
-                    if self.env.point[i - 1].frame >= self.env.point[i].frame {
-                        self.value = self.env.point[i - 1].value as f32 / 64.0;
-                        break;
-                    }
-                }
-
-                /* Make sure it is safe to increment frame count */
-                self.counter = if !sustained
-                    || !self.env.sustain_enabled
-                    || self.counter != self.env.point[self.env.sustain_point as usize].frame
-                {
-                    self.counter + 1
-                } else {
-                    self.counter
-                };
+        if self.env.loop_enabled {
+            let loop_start = self.env.point[self.env.loop_start_point as usize].frame;
+            let loop_end = self.env.point[self.env.loop_end_point as usize].frame;
+            if self.counter >= loop_end {
+                self.counter -= loop_end - loop_start;
             }
         }
-        return self.value;
+
+        for i in 1..num_points {
+            let prev_point = &self.env.point[i - 1];
+            let curr_point = &self.env.point[i];
+
+            if self.counter == prev_point.frame {
+                self.value = prev_point.value;
+                break;
+            }
+
+            if self.counter <= curr_point.frame {
+                self.value = EnvelopePoint::lerp(prev_point, curr_point, self.counter);
+                break;
+            }
+
+            if prev_point.frame >= curr_point.frame {
+                self.value = prev_point.value;
+                break;
+            }
+        }
+
+        /* Make sure it is safe to increment frame count */
+        if !sustained
+            || !self.env.sustain_enabled
+            || self.counter != self.env.point[self.env.sustain_point as usize].frame
+        {
+            self.counter += 1;
+        }
     }
 }
