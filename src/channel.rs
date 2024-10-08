@@ -589,9 +589,9 @@ impl<'a> Channel<'a> {
                 /* Lxx: Set envelope position */
                 match &mut self.instr {
                     Some(i) => {
-                        i.envelope_volume.counter = self.current.effect_parameter as u16;
+                        i.envelope_volume.counter = self.current.effect_parameter as usize;
                         if i.sustained {
-                            i.envelope_panning.counter = self.current.effect_parameter as u16;
+                            i.envelope_panning.counter = self.current.effect_parameter as usize;
                         }
                     }
                     None => {}

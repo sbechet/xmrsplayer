@@ -7,7 +7,7 @@ pub struct StateEnvelope<'a> {
     env: &'a Envelope,
     default_value: f32,
     pub value: f32,
-    pub counter: u16,
+    pub counter: usize,
 }
 
 impl<'a> StateEnvelope<'a> {
