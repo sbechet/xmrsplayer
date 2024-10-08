@@ -29,7 +29,7 @@ impl VibratoTremolo {
             * match self.waveform {
                 0 => -(core::f32::consts::TAU * pos).sin(),
                 1 => {
-                    // triangle, but ramp down reality
+                    // Ramp down
                     if pos < 0.5 {
                         -2.0 * pos
                     } else {
