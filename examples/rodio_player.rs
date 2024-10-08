@@ -34,7 +34,7 @@ struct Cli {
 
     /// How many loop (default: infinity)
     #[arg(short = 'l', long, default_value = "0")]
-    loops: u8,
+    loops: usize,
 
     /// Force historical fT2 replay (default: autodetect)
     #[arg(short = 't', long, default_value = "false")]
@@ -153,7 +153,7 @@ fn rodio_play(
     module: &'static Module,
     amplification: f32,
     position: usize,
-    loops: u8,
+    loops: usize,
     debug: bool,
     ch: u8,
     speed: u16,

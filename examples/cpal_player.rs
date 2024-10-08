@@ -203,7 +203,6 @@ fn cpal_play(
     speed: u16,
     historical: bool,
 ) {
-
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -243,7 +242,6 @@ fn cpal_play(
         player_lock.set_max_loop_count(loops);
         player_lock.goto(position, 0, speed);
     }
-
 
     let player_clone = Arc::clone(&player);
     let stream = device

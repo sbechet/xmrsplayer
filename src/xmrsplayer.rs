@@ -22,7 +22,7 @@ pub struct XmrsPlayer<'a> {
     /// sample rate / (BPM * 0.4)
     remaining_samples_in_tick: f32,
     /// +1 for a (left,right) sample
-    generated_samples: u64,
+    pub generated_samples: u64,
 
     position_jump: bool,
     pattern_break: bool,
@@ -40,6 +40,7 @@ pub struct XmrsPlayer<'a> {
 
     /// None if next-one is a left sample, else right sample
     right_sample: Option<f32>,
+    #[cfg(feature = "std")]
     debug: bool,
     hhelper: Option<HistoricalHelper>,
 
@@ -78,6 +79,7 @@ impl<'a> XmrsPlayer<'a> {
             loop_count: 0,
             max_loop_count: 0,
             right_sample: None,
+            #[cfg(feature = "std")]
             debug: false,
             pause: false,
         };
@@ -87,6 +89,7 @@ impl<'a> XmrsPlayer<'a> {
         player
     }
 
+    #[cfg(feature = "std")]
     pub fn debug(&mut self, debug: bool) {
         self.debug = debug;
     }
@@ -115,12 +118,8 @@ impl<'a> XmrsPlayer<'a> {
         self.sample_rate
     }
 
-    pub fn is_samples(&self) -> bool {
-        self.max_loop_count == 0 || self.loop_count <= self.max_loop_count
-    }
-
-    /// do a manual goto
-    /// default tempo if speed == 0
+    /// Jump to row at index table_position in pattern_order at speed 
+    /// if speed == 0, resets to default speed
     pub fn goto(&mut self, table_position: usize, row: usize, speed: u16) -> bool {
         if table_position < self.module.get_song_length() {
             let num_row = self.module.pattern_order[table_position];
@@ -158,18 +157,22 @@ impl<'a> XmrsPlayer<'a> {
         }
     }
 
+    /// Returns current pattern number in pattern_order
     pub fn get_current_pattern(&self) -> usize {
         self.module.pattern_order[self.current_table_index]
     }
 
+    /// Returns current index in pattern_order
     pub fn get_current_table_index(&self) -> usize {
         self.current_table_index
     }
 
+    /// Returns current row
     pub fn get_current_row(&self) -> usize {
         self.current_row
     }
 
+    /// Force pause, returning (0.0, 0.0) samples
     pub fn pause(&mut self, pause: bool) {
         self.pause = pause;
     }
@@ -392,10 +395,13 @@ impl<'a> XmrsPlayer<'a> {
         self.remaining_samples_in_tick -= 1.0;
     }
 
-    // return (left, right) samples
-    fn sample(&mut self) -> Option<(f32, f32)> {
+    /// Returns samples from each channel before applying global volume and amplification.
+    /// If the function returns None, no more samples are available.
+    /// 
+    /// In conjunction with the samples_apply_volume() function, this function can be used to replace the iterator or the sample() function if you want to control each channel in fine detail, for example, to create beautiful graphic effects.
+    pub fn samples_from_channels(&mut self) -> Option<Vec<(f32, f32)>> {
         if self.pause {
-            return Some((0.0, 0.0));
+            return Some(vec![(0.0, 0.0); self.channel.len()]);
         }
 
         self.step();
@@ -404,33 +410,50 @@ impl<'a> XmrsPlayer<'a> {
             return None;
         }
 
-        let mut left = 0.0;
-        let mut right = 0.0;
-
-        for ch in &mut self.channel {
-            match ch.next() {
+        let samples: Vec<(f32, f32)> = self
+            .channel
+            .iter_mut()
+            .map(|ch| match ch.next() {
                 Some(fval) => {
-                    if !ch.is_muted() {
-                        left += fval.0;
-                        right += fval.1;
+                    if ch.is_muted() {
+                        (0.0, 0.0)
+                    } else {
+                        fval
                     }
                 }
-                None => {}
-            }
-        }
+                None => (0.0, 0.0),
+            })
+            .collect();
 
-        let fgvol =
-            (self.global_volume * self.amplification) / (self.global_volume + self.amplification);
-        left *= fgvol;
-        right *= fgvol;
-
-        Some((left, right))
+        self.generated_samples += 1;
+        Some(samples)
     }
 
+    /// This function applies volume and amplification to the various channel samples. It is applied to the result of the `samples_from_channels()` function.
+    pub fn samples_apply_volume(&mut self, samples: &Vec<(f32, f32)>) -> (f32, f32) {
+        let fgvol = (self.global_volume * self.amplification)
+            / (self.global_volume + self.amplification);
+        let sample = samples
+            .into_iter()
+            .fold((0.0, 0.0), |(acc_left, acc_right), (left, right)| {
+                (acc_left + left, acc_right + right)
+            });
+        return (sample.0 * fgvol, sample.1 * fgvol);
+    }
+
+    /// Returns the sum of the samples from the `samples_from_channels()` and `samples_apply_volume()` functions, separating the left channel from the right.
+    pub fn sample(&mut self) -> Option<(f32, f32)> {
+        if let Some(samples) = self.samples_from_channels() {
+            return Some(self.samples_apply_volume(&samples));
+        } else {
+            return None;
+        }
+    }
+
+    /// Returns samples one after the other, starting with the left channel.
     fn sample_one(&mut self) -> Option<f32> {
         match self.right_sample {
             Some(right) => {
-                self.generated_samples += 1;
                 self.right_sample = None;
                 return Some(right);
             }
@@ -447,20 +470,6 @@ impl<'a> XmrsPlayer<'a> {
         }
     }
 
-    pub fn generate_samples(&mut self, output: &mut [f32]) {
-        let numsamples = output.len() / 2;
-        self.generated_samples += numsamples as u64;
-
-        for i in 0..numsamples {
-            match self.sample() {
-                Some((left, right)) => {
-                    output[2 * i] = left;
-                    output[2 * i + 1] = right;
-                }
-                None => {}
-            }
-        }
-    }
 }
 
 impl<'a> Iterator for XmrsPlayer<'a> {

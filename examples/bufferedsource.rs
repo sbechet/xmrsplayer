@@ -23,6 +23,22 @@ impl<'a> BufferedSource<'a> {
             sample_rate,
         }
     }
+
+    fn generate_samples(&mut self) {
+        let numsamples = self.buffer.len() / 2;
+        for i in 0..numsamples {
+            match self.player
+            .lock()
+            .unwrap().sample() {
+                Some((left, right)) => {
+                    self.buffer[2 * i] = left;
+                    self.buffer[2 * i + 1] = right;
+                }
+                None => {}
+            }
+        }
+    }
+
 }
 
 impl<'a> Source for BufferedSource<'a> {
@@ -44,17 +60,10 @@ impl<'a> Iterator for BufferedSource<'a> {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if !self.player.lock().unwrap().is_samples() {
-            return None;
-        }
-
         self.buffer_index += 1;
 
         if self.buffer_index >= BUFFER_SIZE {
-            self.player
-                .lock()
-                .unwrap()
-                .generate_samples(&mut self.buffer);
+            self.generate_samples();
             self.buffer_index = 0;
         }
 
