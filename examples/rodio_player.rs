@@ -21,7 +21,7 @@ struct Cli {
     filename: Option<String>,
 
     /// Choose amplification
-    #[arg(short = 'a', long, default_value = "0.5")]
+    #[arg(short = 'a', long, default_value = "1.0")]
     amplification: f32,
 
     /// Play only a specific channel (from 1 to n, 0 for all)

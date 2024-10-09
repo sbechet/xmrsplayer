@@ -20,7 +20,7 @@ struct Cli {
     filename: Option<String>,
 
     /// Choose amplification
-    #[arg(short = 'a', long, default_value = "0.5")]
+    #[arg(short = 'a', long, default_value = "1.0")]
     amplification: f32,
 
     /// Play only a specific channel (from 1 to n, 0 for all)
@@ -212,7 +212,6 @@ fn cpal_play(
         .default_output_config()
         .expect("failed to get default output config");
     let sample_rate = config.sample_rate();
-
     // try to detect FT2 to play historical bugs
     let is_ft2 = historical
         || module.comment == "FastTracker v2.00 (1.02)"

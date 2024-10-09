@@ -276,11 +276,8 @@ impl<'a> Channel<'a> {
                             let r = current_tick % (self.current.effect_parameter as u16 & 0x0F);
                             if r == 0 {
                                 self.trigger_note(TRIGGER_KEEP_VOLUME);
-                                match &mut self.instr {
-                                    Some(instr) => {
-                                        instr.tick();
-                                    }
-                                    None => {}
+                                if let Some(instr) = &mut self.instr {
+                                    instr.tick();
                                 }
                             }
                         }
@@ -330,21 +327,18 @@ impl<'a> Channel<'a> {
                 /* Rxy: Multi retrig note */
                 if self.multi_retrig_note.tick() == 0.0 {
                     self.trigger_note(TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_ENVELOPE);
-                    match &self.instr {
-                        Some(instr) => {
-                            if self.volume == 0.0 && !instr.volume_envelope.enabled {
-                                self.volume = self.multi_retrig_note.clamp(self.volume);
+                    if let Some(instr) = &self.instr {
+                        if self.volume == 0.0 && !instr.volume_envelope.enabled {
+                            self.volume = self.multi_retrig_note.clamp(self.volume);
+                            let current_volume = self.current.volume;
+                            if (0x10..=0x50).contains(&current_volume) {
                                 // priority on original volume
-                                if self.current.volume >= 0x10 && self.current.volume <= 0x50 {
-                                    self.volume = (self.current.volume - 0x10) as f32 / 64.0;
-                                }
+                                self.volume = (current_volume - 0x10) as f32 / 64.0;
+                            } else if (0xC0..=0xCF).contains(&current_volume) {
                                 // priority on original panning
-                                if self.current.volume >= 0xC0 && self.current.volume <= 0xCF {
-                                    self.panning = (self.current.volume & 0x0F) as f32 / 16.0;
-                                }
+                                self.panning = (current_volume & 0x0F) as f32 / 16.0;
                             }
                         }
-                        None => {}
                     }
                 }
             }
@@ -391,17 +385,12 @@ impl<'a> Channel<'a> {
     }
 
     pub(crate) fn tick(&mut self, current_tick: u16) {
-        match &mut self.instr {
-            Some(instr) => {
-                instr.tick();
-            }
-            None => {
-                if self.current.has_note_delay() {
-                    self.tick_effects(current_tick);
-                    self.tickn_update_instr();
-                }
-                return;
-            }
+        if let Some(instr) = &mut self.instr {
+            instr.tick();
+        } else if self.current.has_note_delay() {
+            self.tick_effects(current_tick);
+            self.tickn_update_instr();
+            return;
         }
         self.tick_volume_effects();
         self.tick_effects(current_tick);
@@ -448,14 +437,10 @@ impl<'a> Channel<'a> {
             0x9 => {
                 /* 9xx: Sample offset */
                 if self.current.note.is_valid() {
-                    match &mut self.instr {
-                        Some(i) => match &mut i.state_sample {
-                            Some(s) => {
-                                s.set_position(self.current.effect_parameter as usize * 256);
-                            }
-                            None => {}
-                        },
-                        None => {}
+                    if let Some(instr) = &mut self.instr {
+                        if let Some(sample) = &mut instr.state_sample {
+                            sample.set_position(self.current.effect_parameter as usize * 256);
+                        }
                     }
                 }
             }
@@ -508,16 +493,13 @@ impl<'a> Channel<'a> {
                     0x5 => {
                         /* E5y: Set finetune */
                         if self.current.note.is_valid() {
-                            match &mut self.instr {
-                                Some(i) => {
-                                    let finetune =
-                                        (self.current.effect_parameter & 0x0F) as f32 / 8.0 - 1.0;
-                                    i.set_finetune(finetune);
-                                    self.note = self.current.note.value() as f32 - 1.0
-                                        + i.get_finetuned_note();
-                                    self.period = self.period_helper.note_to_period(self.note);
-                                }
-                                None => {}
+                            if let Some(instr) = &mut self.instr {
+                                let finetune =
+                                    (self.current.effect_parameter & 0x0F) as f32 / 8.0 - 1.0;
+                                instr.set_finetune(finetune);
+                                self.note = self.current.note.value() as f32 - 1.0
+                                    + instr.get_finetuned_note();
+                                self.period = self.period_helper.note_to_period(self.note);
                             }
                         }
                     }
@@ -532,11 +514,8 @@ impl<'a> Channel<'a> {
                         /* E90: Retrigger note */
                         if self.current.effect_parameter & 0x0F == 0 {
                             self.trigger_note(TRIGGER_KEEP_VOLUME);
-                            match &mut self.instr {
-                                Some(instr) => {
-                                    instr.tick();
-                                }
-                                None => {}
+                            if let Some(instr) = &mut self.instr {
+                                instr.tick();
                             }
                         }
                     }
@@ -587,14 +566,11 @@ impl<'a> Channel<'a> {
             }
             0x15 => {
                 /* Lxx: Set envelope position */
-                match &mut self.instr {
-                    Some(i) => {
-                        i.envelope_volume.counter = self.current.effect_parameter as usize;
-                        if i.sustained {
-                            i.envelope_panning.counter = self.current.effect_parameter as usize;
-                        }
+                if let Some(instr) = &mut self.instr {
+                    instr.envelope_volume.counter = self.current.effect_parameter as usize;
+                    if instr.sustained {
+                        instr.envelope_panning.counter = self.current.effect_parameter as usize;
                     }
-                    None => {}
                 }
             }
             0x19 => {
@@ -616,26 +592,24 @@ impl<'a> Channel<'a> {
             }
             0x21 => {
                 /* Xxy: Extra stuff */
-                match self.current.effect_parameter >> 4 {
-                    1 => {
-                        /* X1y: Extra fine portamento up */
-                        self.portamento_extrafine_up.xm_update_effect(
-                            self.current.effect_parameter,
-                            2,
-                            1.0,
-                        );
-                        self.period = self.portamento_extrafine_up.clamp(self.period);
-                    }
-                    2 => {
-                        /* X2y: Extra fine portamento down */
-                        self.portamento_extrafine_down.xm_update_effect(
-                            self.current.effect_parameter,
-                            2,
-                            0.0,
-                        );
-                        self.period = self.portamento_extrafine_down.clamp(self.period);
-                    }
-                    _ => {}
+                let effect_case = self.current.effect_parameter >> 4;
+
+                if effect_case == 1 {
+                    /* X1y: Extra fine portamento up */
+                    self.portamento_extrafine_up.xm_update_effect(
+                        self.current.effect_parameter,
+                        2,
+                        1.0,
+                    );
+                    self.period = self.portamento_extrafine_up.clamp(self.period);
+                } else if effect_case == 2 {
+                    /* X2y: Extra fine portamento down */
+                    self.portamento_extrafine_down.xm_update_effect(
+                        self.current.effect_parameter,
+                        2,
+                        0.0,
+                    );
+                    self.period = self.portamento_extrafine_down.clamp(self.period);
                 }
             }
             _ => {}
@@ -694,103 +668,120 @@ impl<'a> Channel<'a> {
         }
     }
 
-    /// change instr and return true if it was the same
+    /// Change instr and return true if it was the same
     fn tick0_change_instr(&mut self, sample_only: bool) -> bool {
         let instrnr = self.current.instrument as usize - 1;
+
         if let InstrumentType::Default(id) = &self.module.instrument[instrnr].instr_type {
-            let was_same = if let Some(i) = &mut self.instr {
-                i.num == instrnr
-            } else {
-                false
-            };
-            // only good instr
-            if id.sample.len() != 0 {
+            let was_same = self.instr.as_ref().map_or(false, |i| i.num == instrnr);
+
+            // Only proceed if the instrument has samples
+            if !id.sample.is_empty() {
                 if sample_only {
-                    match &mut self.instr {
-                        Some(i) => i.replace_instr(id),
-                        _ => {}
+                    if let Some(i) = &mut self.instr {
+                        i.replace_instr(id);
                     }
                 } else {
-                    let instr =
-                        StateInstrDefault::new(id, instrnr, self.period_helper.clone(), self.rate);
-                    self.instr = Some(instr);
+                    self.instr = Some(StateInstrDefault::new(
+                        id,
+                        instrnr,
+                        self.period_helper.clone(),
+                        self.rate,
+                    ));
                 }
             }
-            was_same
+
+            return was_same;
         } else {
             // TODO
-            false
+            return false;
         }
     }
 
-    /// return true if it was the same instrument
+    /// Return true if it was the same instrument
     fn tick0_load_instrument(&mut self) -> bool {
-        if self.current.instrument > 0 {
-            if self.current.instrument as usize > self.module.instrument.len() {
-                /* Invalid instrument, Cut current note */
-                self.cut_note();
-                self.instr = None;
-                return false;
-            } else if self.current.has_tone_portamento() {
-                self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
-                return self.tick0_change_instr(true);
-            } else if self.current.note.is_none() {
-                /* Ghost instrument, trigger note */
-                if self.current.has_volume_slide() {
-                    self.trigger_note(TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_PERIOD);
-                } else {
-                    /* Sample position is kept, but envelopes are reset */
-                    self.trigger_note(
-                        TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD,
-                    );
-                }
-                return self.tick0_change_instr(true);
-            } else if !self.current.note.is_keyoff() {
-                return self.tick0_change_instr(false);
-            } else if self.current.note.is_keyoff() {
-                self.trigger_note(TRIGGER_KEEP_PERIOD);
-            }
+        if self.current.instrument == 0 {
+            return true; // No instrument to load
         }
-        return true;
+
+        if self.current.instrument as usize > self.module.instrument.len() {
+            /* Invalid instrument, cut current note */
+            self.cut_note();
+            self.instr = None;
+            return false;
+        }
+
+        if self.current.has_tone_portamento() {
+            self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_SAMPLE_POSITION);
+            return self.tick0_change_instr(true);
+        }
+
+        if self.current.note.is_none() {
+            /* Ghost instrument, trigger note */
+            let trigger_flags = if self.current.has_volume_slide() {
+                TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_PERIOD
+            } else {
+                /* Sample position is kept, but envelopes are reset */
+                TRIGGER_KEEP_SAMPLE_POSITION | TRIGGER_KEEP_VOLUME | TRIGGER_KEEP_PERIOD
+            };
+            self.trigger_note(trigger_flags);
+            return self.tick0_change_instr(true);
+        }
+
+        if self.current.note.is_keyoff() {
+            self.trigger_note(TRIGGER_KEEP_PERIOD);
+            return true; // Keyoff does not change instrument
+        }
+
+        return self.tick0_change_instr(false);
     }
 
     fn tick0_load_note(&mut self, new_instr: bool) {
-        if self.current.note.is_valid() {
-            match &mut self.instr {
-                Some(i) => {
-                    if self.current.has_tone_portamento() {
-                        match &i.state_sample {
-                            Some(s) if s.is_enabled() => {
-                                self.note =
-                                    self.current.note.value() as f32 - 1.0 + s.get_finetuned_note()
-                            }
-                            _ => self.cut_note(),
-                        }
-                    } else if i.set_note(self.current.note) {
-                        if let Some(s) = &i.state_sample {
-                            self.note =
-                                self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
-                        }
 
-                        if self.current.instrument > 0 {
-                            self.trigger_note(TRIGGER_KEEP_NONE);
-                        } else {
-                            /* Ghost note: keep old volume */
-                            self.trigger_note(TRIGGER_KEEP_VOLUME);
-                        }
-                    } else {
-                        self.cut_note();
+        // Note is note valid? Return early.
+        if !self.current.note.is_valid() {
+            if self.current.note.is_keyoff() {
+                if self.current.instrument == 0 || new_instr {
+                    self.key_off(0);
+                } else {
+                    self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+                }
+            }
+            return;
+        }
+    
+        // Instr?
+        if let Some(instr) = &mut self.instr {
+            // Portamento?
+            if self.current.has_tone_portamento() {
+                if let Some(s) = &instr.state_sample {
+                    if s.is_enabled() {
+                        self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
+                        return;
                     }
                 }
-                None => self.cut_note(),
+                self.cut_note();
+                return;
             }
-        } else if self.current.note.is_keyoff() {
-            if self.current.instrument == 0 || new_instr {
-                self.key_off(0);
-            } else {
-                self.trigger_note(TRIGGER_KEEP_PERIOD | TRIGGER_KEEP_ENVELOPE);
+    
+            // SetNote
+            if instr.set_note(self.current.note) {
+                if let Some(s) = &instr.state_sample {
+                    self.note = self.current.note.value() as f32 - 1.0 + s.get_finetuned_note();
+                }
+    
+                let trigger_flag = if self.current.instrument > 0 {
+                    TRIGGER_KEEP_NONE
+                } else {
+                    /* Ghost note: keep old volume */
+                    TRIGGER_KEEP_VOLUME
+                };
+                self.trigger_note(trigger_flag);
+                return;
             }
         }
+
+        self.cut_note();
     }
 
     fn tick0_load_instrument_and_note(&mut self) {

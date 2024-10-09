@@ -14,7 +14,7 @@ pub struct XmrsPlayer<'a> {
     /// Global volume: 0.0 to 1.0
     pub global_volume: f32,
     global_volume_slide_param: u8,
-    /// Global amplification (default 1/4)
+    /// Global amplification (default 1.0)
     pub amplification: f32,
     current_table_index: usize,
     current_row: usize,
@@ -61,7 +61,7 @@ impl<'a> XmrsPlayer<'a> {
             tempo: module.default_tempo,
             bpm: module.default_bpm,
             global_volume: 1.0,
-            amplification: 0.25,
+            amplification: 1.0,
             row_loop_count: vec![vec![0; MAX_NUM_ROWS]; module.get_song_length()],
             hhelper: hhelper.clone(),
             global_volume_slide_param: 0,
@@ -118,7 +118,7 @@ impl<'a> XmrsPlayer<'a> {
         self.sample_rate
     }
 
-    /// Jump to row at index table_position in pattern_order at speed 
+    /// Jump to row at index table_position in pattern_order at speed
     /// if speed == 0, resets to default speed
     pub fn goto(&mut self, table_position: usize, row: usize, speed: u16) -> bool {
         if table_position < self.module.get_song_length() {
@@ -355,19 +355,17 @@ impl<'a> XmrsPlayer<'a> {
             // Specific effect to slide global volume
             if ch.current.effect_type == 0x11 && self.current_tick != 0 {
                 /* Hxy: Global volume slide */
-                self.global_volume += if (self.global_volume_slide_param & 0xF0 != 0)
-                    && (self.global_volume_slide_param & 0x0F != 0)
-                {
-                    /* Illegal state */
-                    0.0
-                } else if self.global_volume_slide_param & 0xF0 != 0 {
-                    /* Global slide up */
-                    (self.global_volume_slide_param >> 4) as f32 / 64.0
-                } else {
-                    /* Global slide down */
-                    -((self.global_volume_slide_param & 0x0F) as f32) / 64.0
+                let slide_amount = match (
+                    self.global_volume_slide_param & 0xF0 != 0,
+                    self.global_volume_slide_param & 0x0F != 0,
+                ) {
+                    (true, false) => (self.global_volume_slide_param >> 4) as f32 / 64.0, // Global slide up
+                    (false, true) => -((self.global_volume_slide_param & 0x0F) as f32 / 64.0), // Global slide down
+                    _ => 0.0, // Illegal state or empty values
                 };
+                self.global_volume += slide_amount;
             }
+
             clamp(&mut self.global_volume);
         }
     }
@@ -397,7 +395,7 @@ impl<'a> XmrsPlayer<'a> {
 
     /// Returns samples from each channel before applying global volume and amplification.
     /// If the function returns None, no more samples are available.
-    /// 
+    ///
     /// In conjunction with the samples_apply_volume() function, this function can be used to replace the iterator or the sample() function if you want to control each channel in fine detail, for example, to create beautiful graphic effects.
     pub fn samples_from_channels(&mut self) -> Option<Vec<(f32, f32)>> {
         if self.pause {
@@ -429,22 +427,31 @@ impl<'a> XmrsPlayer<'a> {
         Some(samples)
     }
 
-    /// This function applies volume and amplification to the various channel samples. It is applied to the result of the `samples_from_channels()` function.
-    pub fn samples_apply_volume(&mut self, samples: &Vec<(f32, f32)>) -> (f32, f32) {
-        let fgvol = (self.global_volume * self.amplification)
-            / (self.global_volume + self.amplification);
+    pub fn samples_to_sample(&mut self, samples: &Vec<(f32, f32)>) -> (f32, f32) {
         let sample = samples
             .into_iter()
             .fold((0.0, 0.0), |(acc_left, acc_right), (left, right)| {
                 (acc_left + left, acc_right + right)
             });
+        return (sample.0, sample.1);
+    }
+
+    /// This function applies volume and amplification to the various channel samples. It is applied to the result of the `samples_from_channels()` function.
+    pub fn samples_apply_volume(&mut self, samples: &Vec<(f32, f32)>) -> (f32, f32) {
+        let fgvol =
+            (self.global_volume * self.amplification) / (self.global_volume + self.amplification);
+        let sample = self.samples_to_sample(samples);
         return (sample.0 * fgvol, sample.1 * fgvol);
     }
 
     /// Returns the sum of the samples from the `samples_from_channels()` and `samples_apply_volume()` functions, separating the left channel from the right.
-    pub fn sample(&mut self) -> Option<(f32, f32)> {
+    pub fn sample(&mut self, apply_volume: bool) -> Option<(f32, f32)> {
         if let Some(samples) = self.samples_from_channels() {
-            return Some(self.samples_apply_volume(&samples));
+            if apply_volume {
+                return Some(self.samples_apply_volume(&samples));
+            } else {
+                return Some(self.samples_to_sample(&samples));
+            }
         } else {
             return None;
         }
@@ -458,10 +465,11 @@ impl<'a> XmrsPlayer<'a> {
                 return Some(right);
             }
             None => {
-                let next_samples = self.sample();
+                let next_samples = self.sample(true);
                 match next_samples {
                     Some((left, right)) => {
                         self.right_sample = Some(right);
+
                         return Some(left);
                     }
                     None => return None,
@@ -469,7 +477,6 @@ impl<'a> XmrsPlayer<'a> {
             }
         }
     }
-
 }
 
 impl<'a> Iterator for XmrsPlayer<'a> {
